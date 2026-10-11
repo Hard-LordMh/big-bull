@@ -1,0 +1,281 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/powerbi-modeling-mcp/main/schema.json",
+  "name": "BigBullSemanticModel",
+  "compatibilityLevel": 1600,
+  "description": "BIG BULL AI Stock Prediction & Pattern Analysis Semantic Model",
+  "culture": "en-US",
+  "tables": [
+    {
+      "name": "Dim_Stock",
+      "description": "Stock dimension table listing unique NSE tickers and company details",
+      "columns": [
+        {"name": "Ticker", "dataType": "string", "isKey": true},
+        {"name": "Clean_Symbol", "dataType": "string"},
+        {"name": "Company", "dataType": "string"},
+        {"name": "Data_Source", "dataType": "string"}
+      ]
+    },
+    {
+      "name": "Dim_Date",
+      "description": "Calculated calendar date dimension table",
+      "columns": [
+        {"name": "Date", "dataType": "dateTime", "isKey": true, "formatString": "yyyy-MM-dd"},
+        {"name": "Year", "dataType": "int64"},
+        {"name": "Quarter", "dataType": "string"},
+        {"name": "MonthNumber", "dataType": "int64"},
+        {"name": "MonthName", "dataType": "string"},
+        {"name": "MonthYear", "dataType": "string"},
+        {"name": "DayOfMonth", "dataType": "int64"},
+        {"name": "WeekdayName", "dataType": "string"},
+        {"name": "IsWeekend", "dataType": "string"}
+      ]
+    },
+    {
+      "name": "Fact_Historical_Prices",
+      "description": "Real historical daily OHLCV prices, VWAP, RSI, ATR",
+      "columns": [
+        {"name": "Date", "dataType": "dateTime", "formatString": "yyyy-MM-dd"},
+        {"name": "Ticker", "dataType": "string"},
+        {"name": "Clean_Symbol", "dataType": "string"},
+        {"name": "Company", "dataType": "string"},
+        {"name": "Open", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "High", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Low", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Close", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Volume", "dataType": "int64", "formatString": "#,##0"},
+        {"name": "VWAP", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Daily_Return_Pct", "dataType": "double", "formatString": "0.00%"},
+        {"name": "RSI_14", "dataType": "double", "formatString": "0.0"},
+        {"name": "ATR_14", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Data_Source", "dataType": "string"},
+        {"name": "Last_Updated", "dataType": "dateTime"}
+      ]
+    },
+    {
+      "name": "Fact_Daily_Predictions",
+      "description": "Next-day directional forecast from Random Forest and Kronos foundation model",
+      "columns": [
+        {"name": "Signal_Date", "dataType": "dateTime", "formatString": "yyyy-MM-dd"},
+        {"name": "Forecast_Date", "dataType": "dateTime", "formatString": "yyyy-MM-dd"},
+        {"name": "Ticker", "dataType": "string"},
+        {"name": "Clean_Symbol", "dataType": "string"},
+        {"name": "Current_Close", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Predicted_Close", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Predicted_Return_Pct", "dataType": "double", "formatString": "0.00%"},
+        {"name": "Predicted_Direction", "dataType": "string"},
+        {"name": "Probability_UP", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Probability_DOWN", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Model_Name", "dataType": "string"},
+        {"name": "Model_Version", "dataType": "string"},
+        {"name": "Horizon_Days", "dataType": "int64"},
+        {"name": "Tree_Consensus_Pct", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Market_Regime", "dataType": "string"},
+        {"name": "Out_Of_Sample", "dataType": "boolean"},
+        {"name": "Last_Updated", "dataType": "dateTime"}
+      ]
+    },
+    {
+      "name": "Fact_Five_Day_Predictions",
+      "description": "Step-by-step 5-day trajectory predictions with uncertainty bands",
+      "columns": [
+        {"name": "Signal_Date", "dataType": "dateTime", "formatString": "yyyy-MM-dd"},
+        {"name": "Forecast_Date", "dataType": "dateTime", "formatString": "yyyy-MM-dd"},
+        {"name": "Step", "dataType": "int64"},
+        {"name": "Horizon_Days", "dataType": "int64"},
+        {"name": "Ticker", "dataType": "string"},
+        {"name": "Clean_Symbol", "dataType": "string"},
+        {"name": "Current_Close", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Predicted_Close", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Lower_Bound", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Upper_Bound", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Expected_Return_Pct", "dataType": "double", "formatString": "0.00%"},
+        {"name": "Predicted_Direction", "dataType": "string"},
+        {"name": "Probability_UP", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Model_Name", "dataType": "string"},
+        {"name": "Model_Version", "dataType": "string"},
+        {"name": "Out_Of_Sample", "dataType": "boolean"},
+        {"name": "Last_Updated", "dataType": "dateTime"}
+      ]
+    },
+    {
+      "name": "Fact_Intraday_Patterns",
+      "description": "15-minute time of day historical distribution across NSE trading hours",
+      "columns": [
+        {"name": "Ticker", "dataType": "string"},
+        {"name": "Clean_Symbol", "dataType": "string"},
+        {"name": "Time_Interval_IST", "dataType": "string"},
+        {"name": "Sessions_Observed", "dataType": "int64"},
+        {"name": "Mean_Return_Pct", "dataType": "double", "formatString": "0.00%"},
+        {"name": "Win_Rate_Pct", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Volatility_Pct", "dataType": "double", "formatString": "0.00%"},
+        {"name": "Optimal_Timing_Window", "dataType": "string"},
+        {"name": "Last_Updated", "dataType": "dateTime"}
+      ]
+    },
+    {
+      "name": "Fact_Historical_Patterns",
+      "description": "Calendar patterns: Weekdays, Day of Month 1-31, Monthly Seasonality, Festivals",
+      "columns": [
+        {"name": "Ticker", "dataType": "string"},
+        {"name": "Clean_Symbol", "dataType": "string"},
+        {"name": "Pattern_Category", "dataType": "string"},
+        {"name": "Pattern_Key", "dataType": "string"},
+        {"name": "Calendar_Window", "dataType": "string"},
+        {"name": "Sessions_Observed", "dataType": "int64"},
+        {"name": "Mean_Return_Pct", "dataType": "double", "formatString": "0.00%"},
+        {"name": "Win_Rate_Pct", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Volatility_Pct", "dataType": "double", "formatString": "0.00%"},
+        {"name": "Historical_Tendency", "dataType": "string"},
+        {"name": "Market_Driver", "dataType": "string"},
+        {"name": "Last_Updated", "dataType": "dateTime"}
+      ]
+    },
+    {
+      "name": "Fact_Timing_Signals",
+      "description": "Actionable research signals with ATR target and stop-loss levels",
+      "columns": [
+        {"name": "Signal_Date", "dataType": "dateTime", "formatString": "yyyy-MM-dd"},
+        {"name": "Ticker", "dataType": "string"},
+        {"name": "Clean_Symbol", "dataType": "string"},
+        {"name": "Signal", "dataType": "string"},
+        {"name": "Reference_Price", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Target_Price", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Stop_Loss", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Risk_Reward_Ratio", "dataType": "double", "formatString": "0.00"},
+        {"name": "ATR_14", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "RSI_14", "dataType": "double", "formatString": "0.0"},
+        {"name": "Entry_Window", "dataType": "string"},
+        {"name": "Exit_Window", "dataType": "string"},
+        {"name": "Estimated_Cost_Bps", "dataType": "double"},
+        {"name": "Rationale", "dataType": "string"},
+        {"name": "Invalidation_Rule", "dataType": "string"},
+        {"name": "Last_Updated", "dataType": "dateTime"}
+      ]
+    },
+    {
+      "name": "Fact_Backtest_Results",
+      "description": "Chronological holdout backtest equity curves and net returns",
+      "columns": [
+        {"name": "Date", "dataType": "dateTime", "formatString": "yyyy-MM-dd"},
+        {"name": "Close", "dataType": "double", "formatString": "#,##0.00"},
+        {"name": "Position", "dataType": "int64"},
+        {"name": "Strategy_Net_Return", "dataType": "double", "formatString": "0.00%"},
+        {"name": "Cumulative_Strategy", "dataType": "double", "formatString": "0.00"},
+        {"name": "Cumulative_Market", "dataType": "double", "formatString": "0.00"},
+        {"name": "Ticker", "dataType": "string"},
+        {"name": "Clean_Symbol", "dataType": "string"},
+        {"name": "Cost_Bps", "dataType": "double"},
+        {"name": "Out_Of_Sample", "dataType": "boolean"},
+        {"name": "Last_Updated", "dataType": "dateTime"}
+      ]
+    },
+    {
+      "name": "Fact_Model_Metrics",
+      "description": "Walk-forward and holdout accuracy scorecard vs baseline",
+      "columns": [
+        {"name": "Ticker", "dataType": "string"},
+        {"name": "Clean_Symbol", "dataType": "string"},
+        {"name": "Model_Name", "dataType": "string"},
+        {"name": "Model_Version", "dataType": "string"},
+        {"name": "Horizon_Days", "dataType": "int64"},
+        {"name": "Holdout_Accuracy", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Baseline_Accuracy", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Accuracy_Edge", "dataType": "double", "formatString": "+0.0%;-0.0%"},
+        {"name": "Balanced_Accuracy", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Precision_UP", "dataType": "double", "formatString": "0.0%"},
+        {"name": "F1_Score", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Strategy_Win_Rate_Pct", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Strategy_Net_Return_Pct", "dataType": "double", "formatString": "+0.0%;-0.0%"},
+        {"name": "Benchmark_Return_Pct", "dataType": "double", "formatString": "+0.0%;-0.0%"},
+        {"name": "Max_Drawdown_Pct", "dataType": "double", "formatString": "0.0%"},
+        {"name": "Profit_Factor", "dataType": "double", "formatString": "0.00"},
+        {"name": "Total_Trades", "dataType": "int64"},
+        {"name": "Out_Of_Sample", "dataType": "boolean"},
+        {"name": "Last_Updated", "dataType": "dateTime"}
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "name": "Rel_Prices_Date",
+      "fromTable": "Fact_Historical_Prices",
+      "fromColumn": "Date",
+      "toTable": "Dim_Date",
+      "toColumn": "Date",
+      "crossFilteringBehavior": "oneDirection",
+      "isActive": true
+    },
+    {
+      "name": "Rel_Prices_Stock",
+      "fromTable": "Fact_Historical_Prices",
+      "fromColumn": "Ticker",
+      "toTable": "Dim_Stock",
+      "toColumn": "Ticker",
+      "crossFilteringBehavior": "oneDirection",
+      "isActive": true
+    },
+    {
+      "name": "Rel_DailyPred_Stock",
+      "fromTable": "Fact_Daily_Predictions",
+      "fromColumn": "Ticker",
+      "toTable": "Dim_Stock",
+      "toColumn": "Ticker",
+      "crossFilteringBehavior": "oneDirection",
+      "isActive": true
+    },
+    {
+      "name": "Rel_FiveDayPred_Stock",
+      "fromTable": "Fact_Five_Day_Predictions",
+      "fromColumn": "Ticker",
+      "toTable": "Dim_Stock",
+      "toColumn": "Ticker",
+      "crossFilteringBehavior": "oneDirection",
+      "isActive": true
+    },
+    {
+      "name": "Rel_Intraday_Stock",
+      "fromTable": "Fact_Intraday_Patterns",
+      "fromColumn": "Ticker",
+      "toTable": "Dim_Stock",
+      "toColumn": "Ticker",
+      "crossFilteringBehavior": "oneDirection",
+      "isActive": true
+    },
+    {
+      "name": "Rel_HistPatterns_Stock",
+      "fromTable": "Fact_Historical_Patterns",
+      "fromColumn": "Ticker",
+      "toTable": "Dim_Stock",
+      "toColumn": "Ticker",
+      "crossFilteringBehavior": "oneDirection",
+      "isActive": true
+    },
+    {
+      "name": "Rel_Signals_Stock",
+      "fromTable": "Fact_Timing_Signals",
+      "fromColumn": "Ticker",
+      "toTable": "Dim_Stock",
+      "toColumn": "Ticker",
+      "crossFilteringBehavior": "oneDirection",
+      "isActive": true
+    },
+    {
+      "name": "Rel_Backtest_Stock",
+      "fromTable": "Fact_Backtest_Results",
+      "fromColumn": "Ticker",
+      "toTable": "Dim_Stock",
+      "toColumn": "Ticker",
+      "crossFilteringBehavior": "oneDirection",
+      "isActive": true
+    },
+    {
+      "name": "Rel_Metrics_Stock",
+      "fromTable": "Fact_Model_Metrics",
+      "fromColumn": "Ticker",
+      "toTable": "Dim_Stock",
+      "toColumn": "Ticker",
+      "crossFilteringBehavior": "oneDirection",
+      "isActive": true
+    }
+  ]
+}

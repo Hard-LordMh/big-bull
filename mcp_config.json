@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "big-bull-ai": {
+      "command": "python",
+      "args": ["g:/The Big Bull/mcp_server.py"],
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      }
+    },
+    "powerbi-authoring-local": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@microsoft/powerbi-modeling-mcp@latest",
+        "--start"
+      ]
+    }
+  }
+}

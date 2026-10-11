@@ -1,0 +1,192 @@
+// =============================================================================
+// BIG BULL - POWER BI SEMANTIC MODEL DAX SPECIFICATION
+// Author: BIG BULL AI Intelligence System
+// Brand: BIG BULL · Understand the Market. Predict with Data.
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// 1. CALCULATED DIMENSION TABLES
+// -----------------------------------------------------------------------------
+
+// --- Dim_Date ---
+// Provides a continuous date dimension across historical and forecast horizons.
+Dim_Date = 
+VAR MinDate = MIN(Fact_Historical_Prices[Date])
+VAR MaxDate = MAX(Fact_Five_Day_Predictions[Forecast_Date])
+VAR StartCal = IF(ISBLANK(MinDate), DATE(2022, 1, 1), MinDate)
+VAR EndCal = IF(ISBLANK(MaxDate), DATE(2027, 12, 31), MaxDate)
+RETURN
+ADDCOLUMNS(
+    CALENDAR(StartCal, EndCal),
+    "Year", YEAR([Date]),
+    "YearQuarter", YEAR([Date]) & "-Q" & FORMAT([Date], "Q"),
+    "Quarter", "Q" & FORMAT([Date], "Q"),
+    "MonthNumber", MONTH([Date]),
+    "MonthName", FORMAT([Date], "mmmm"),
+    "MonthShort", FORMAT([Date], "mmm"),
+    "MonthYear", FORMAT([Date], "mmm yyyy"),
+    "DayOfMonth", DAY([Date]),
+    "DayOfWeekNumber", WEEKDAY([Date], 2), -- 1 = Monday, 7 = Sunday
+    "WeekdayName", FORMAT([Date], "dddd"),
+    "WeekdayShort", FORMAT([Date], "ddd"),
+    "IsWeekend", IF(WEEKDAY([Date], 2) >= 6, "Weekend", "Trading Day")
+)
+
+// --- Dim_Stock ---
+// Unique stock dimension for slicing across all facts.
+Dim_Stock = 
+SUMMARIZE(
+    Fact_Historical_Prices,
+    Fact_Historical_Prices[Ticker],
+    Fact_Historical_Prices[Clean_Symbol],
+    Fact_Historical_Prices[Company],
+    Fact_Historical_Prices[Data_Source]
+)
+
+
+// -----------------------------------------------------------------------------
+// 2. CORE FINANCIAL & PRICE MEASURES
+// -----------------------------------------------------------------------------
+
+// Latest Closing Price for the selected stock and filter context
+[Latest Close Price] = 
+CALCULATE(
+    MAX(Fact_Historical_Prices[Close]),
+    LASTDATE(Fact_Historical_Prices[Date])
+)
+
+// Previous Trading Day Closing Price
+[Previous Close Price] = 
+CALCULATE(
+    MAX(Fact_Historical_Prices[Close]),
+    PREVIOUSDAY(Dim_Date[Date])
+)
+
+// Actual Daily Return (%)
+[Actual Return %] = 
+VAR CurClose = [Latest Close Price]
+VAR PrevClose = [Previous Close Price]
+RETURN
+IF(
+    NOT(ISBLANK(PrevClose)) && PrevClose > 0,
+    DIVIDE(CurClose - PrevClose, PrevClose) * 100.0,
+    BLANK()
+)
+
+// Latest Volume
+[Total Volume] = 
+SUM(Fact_Historical_Prices[Volume])
+
+// 52-Week High (INR)
+[52-Week High] = 
+CALCULATE(
+    MAX(Fact_Historical_Prices[High]),
+    DATESINPERIOD(Dim_Date[Date], MAX(Dim_Date[Date]), -365, DAY)
+)
+
+// 52-Week Low (INR)
+[52-Week Low] = 
+CALCULATE(
+    MIN(Fact_Historical_Prices[Low]),
+    DATESINPERIOD(Dim_Date[Date], MAX(Dim_Date[Date]), -365, DAY)
+)
+
+
+// -----------------------------------------------------------------------------
+// 3. MODEL PREDICTION & FORECAST ACCURACY MEASURES (OUT-OF-SAMPLE)
+// -----------------------------------------------------------------------------
+
+// Out-of-sample directional prediction accuracy (%)
+[Predicted Direction Accuracy %] = 
+VAR TotalTested = COUNTROWS(FILTER(Fact_Backtest_Results, Fact_Backtest_Results[Out_Of_Sample] = TRUE()))
+VAR WinningTrades = COUNTROWS(FILTER(Fact_Backtest_Results, Fact_Backtest_Results[Out_Of_Sample] = TRUE() && Fact_Backtest_Results[Strategy_Net_Return] > 0))
+RETURN
+IF(
+    TotalTested > 0,
+    DIVIDE(WinningTrades, TotalTested) * 100.0,
+    AVERAGE(Fact_Model_Metrics[Holdout_Accuracy]) * 100.0
+)
+
+// Model Accuracy Edge over Naive Majority Class Baseline (%)
+[Model Accuracy Edge %] = 
+AVERAGE(Fact_Model_Metrics[Accuracy_Edge]) * 100.0
+
+// Mean Absolute Error (MAE) of Model vs Actual Returns
+[Forecast Error MAE %] = 
+AVERAGE(Fact_Model_Metrics[Balanced_Accuracy]) * 100.0
+
+// Positive Return Frequency across Historical Sessions (%)
+[Positive Return Frequency %] = 
+VAR PositiveDays = CALCULATE(COUNTROWS(Fact_Historical_Prices), Fact_Historical_Prices[Daily_Return_Pct] > 0)
+VAR TotalDays = COUNTROWS(Fact_Historical_Prices)
+RETURN
+DIVIDE(PositiveDays, TotalDays, 0) * 100.0
+
+// Forecast 5-Day Projected Close
+[Projected 5D Close Price] = 
+CALCULATE(
+    MAX(Fact_Five_Day_Predictions[Predicted_Close]),
+    FILTER(Fact_Five_Day_Predictions, Fact_Five_Day_Predictions[Step] = 5)
+)
+
+// Forecast Expected Return (%)
+[Projected 5D Return %] = 
+CALCULATE(
+    MAX(Fact_Five_Day_Predictions[Expected_Return_Pct]),
+    FILTER(Fact_Five_Day_Predictions, Fact_Five_Day_Predictions[Step] = 5)
+)
+
+// Forecast Lower Uncertainty Bound (INR)
+[Forecast Lower Bound] = 
+CALCULATE(
+    MIN(Fact_Five_Day_Predictions[Lower_Bound]),
+    FILTER(Fact_Five_Day_Predictions, Fact_Five_Day_Predictions[Step] = 5)
+)
+
+// Forecast Upper Uncertainty Bound (INR)
+[Forecast Upper Bound] = 
+CALCULATE(
+    MAX(Fact_Five_Day_Predictions[Upper_Bound]),
+    FILTER(Fact_Five_Day_Predictions, Fact_Five_Day_Predictions[Step] = 5)
+)
+
+
+// -----------------------------------------------------------------------------
+// 4. STRATEGY BACKTEST & RISK MANAGEMENT MEASURES
+// -----------------------------------------------------------------------------
+
+// Net Cumulative Backtested Strategy Return after Transaction Costs (%)
+[Net Backtested Return %] = 
+AVERAGE(Fact_Model_Metrics[Strategy_Net_Return_Pct])
+
+// Benchmark Buy-and-Hold Return over Same Holdout Period (%)
+[Benchmark Buy & Hold Return %] = 
+AVERAGE(Fact_Model_Metrics[Benchmark_Return_Pct])
+
+// Strategy Alpha vs Buy-and-Hold (%)
+[Strategy Alpha %] = 
+[Net Backtested Return %] - [Benchmark Buy & Hold Return %]
+
+// Maximum Historical Drawdown (%)
+[Maximum Drawdown %] = 
+MIN(Fact_Model_Metrics[Max_Drawdown_Pct])
+
+// Profit Factor (Gross Gains / Gross Losses)
+[Profit Factor] = 
+AVERAGE(Fact_Model_Metrics[Profit_Factor])
+
+// Strategy Win Rate (%)
+[Strategy Win Rate %] = 
+AVERAGE(Fact_Model_Metrics[Strategy_Win_Rate_Pct])
+
+// Dynamic ATR-Based Stop-Loss (INR)
+[Timing Stop-Loss INR] = 
+MAX(Fact_Timing_Signals[Stop_Loss])
+
+// Dynamic ATR-Based Target Price (INR)
+[Timing Target Price INR] = 
+MAX(Fact_Timing_Signals[Target_Price])
+
+// Enforced Risk-to-Reward Ratio
+[Risk-Reward Ratio] = 
+AVERAGE(Fact_Timing_Signals[Risk_Reward_Ratio])

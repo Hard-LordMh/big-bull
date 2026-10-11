@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# IDE
+.idea/
+.vscode/
+
+# Runtime artefacts (regenerated on every run)
+outputs/
+powerbi_exports/
+models/
+*.joblib
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Optional Kronos foundation-model repo (needs torch; pulled separately if required)
+kronos_repo/
+# Local symlinked skills
+.agents/skills/developing-with-streamlit

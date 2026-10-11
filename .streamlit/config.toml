@@ -1,0 +1,72 @@
+# Professional Financial Dashboard Theme — BIG BULL
+# Dark navy palette matching reference screenshot
+
+[theme]
+base = "dark"
+primaryColor = "#3B82F6"             # Bright blue accent
+backgroundColor = "#0F172A"          # Deep navy
+secondaryBackgroundColor = "#1E293B" # Slightly lighter navy
+codeBackgroundColor = "#1E293B"
+textColor = "#F1F5F9"                # Light text
+linkColor = "#3B82F6"
+borderColor = "#334155"
+codeTextColor = "#CBD5E1"
+showWidgetBorder = true
+showSidebarBorder = true
+baseRadius = "8px"
+buttonRadius = "8px"
+
+font = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+baseFontSize = 14
+baseFontWeight = 400
+codeFontSize = "13px"
+headingFontSizes = ["28px", "22px", "18px", "16px", "14px", "12px"]
+headingFontWeights = [700, 700, 600, 600, 500, 500]
+linkUnderline = false
+
+# Semantic financial colors
+greenColor = "#10B981"   # Positive/gains
+redColor = "#EF4444"     # Negative/losses
+yellowColor = "#F59E0B"  # Warning/neutral/uncertain
+orangeColor = "#FB923C"  # Alert
+blueColor = "#3B82F6"    # Info/primary
+violetColor = "#8B5CF6"  # Accent
+grayColor = "#64748B"    # Muted
+
+chartCategoricalColors = [
+    "#3B82F6",
+    "#10B981",
+    "#8B5CF6",
+    "#EF4444",
+    "#F59E0B",
+    "#06B6D4",
+    "#64748B",
+    "#FB923C",
+]
+
+chartSequentialColors = [
+    "#0C4A6E",
+    "#075985",
+    "#0369A1",
+    "#0284C7",
+    "#0EA5E9",
+    "#38BDF8",
+    "#7DD3FC",
+    "#BAE6FD",
+    "#E0F2FE",
+    "#F0F9FF",
+]
+
+dataframeBorderColor = "#334155"
+dataframeHeaderBackgroundColor = "#1E293B"
+dataframeHeaderTextColor = "#F8FAFC"
+
+[theme.sidebar]
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#1E293B"
+codeBackgroundColor = "#1E293B"
+textColor = "#F1F5F9"
+borderColor = "#334155"
+primaryColor = "#3B82F6"
