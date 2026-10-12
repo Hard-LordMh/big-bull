@@ -154,3 +154,4 @@ Add the configuration from [mcp_config.json](file:///g:/The%20Big%20Bull/mcp_con
 
 ## ⚠️ Important Educational Disclaimer
 This system is an AI research and decision-support tool. Model probabilities and research signals reflect historical statistical patterns and do not guarantee future market performance. It does not execute automated trades. Always practice strict risk management and stop-loss discipline.
+"# the-big-bull" 
