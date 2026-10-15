@@ -30,3 +30,6 @@ kronos_repo/
 
 # Local benchmark harness
 _bench_full.py
+
+# Vercel CLI local state
+web/.vercel/

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BIG BULL · AI Direction Engine for NSE</title>
+<meta name="description" content="Random Forest direction engine for NSE stocks: 5-year walk-forward replay, next-week UP/DOWN calls, tree-consensus diagnostics. Honest about what the model can and cannot do." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐂</text></svg>" />
+</head>
+<body>
+
+<nav class="nav">
+  <a class="brand" href="#top">
+    <span class="brand-mark">🐂</span>
+    <span class="brand-text">BIG BULL<small>AI direction engine · NSE</small></span>
+  </a>
+  <a class="btn btn-primary btn-sm" id="nav-cta" href="#">Open the live app</a>
+</nav>
+
+<header class="hero" id="top">
+  <div class="hero-inner">
+    <span class="pill">Python · scikit-learn · Streamlit</span>
+    <h1>Know the next move.<br><span class="grad">Before it happens.</span></h1>
+    <p class="lede">
+      BIG BULL replays a Random Forest classifier across five years of NSE history —
+      1,231 real signals per stock — then issues one clear next-week call:
+      <strong class="g">UP</strong> or <strong class="r">DOWN</strong>.
+      Every number is checked against a majority-class baseline. Nothing is hidden.
+    </p>
+    <div class="cta-row">
+      <a class="btn btn-primary" id="hero-cta" href="#">Launch the prediction engine</a>
+      <a class="btn btn-ghost" href="#benchmarks">See the real accuracy</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><b>1,231</b><span>signals / stock</span></div>
+      <div class="hstat"><b>5 yrs</b><span>walk-forward replay</span></div>
+      <div class="hstat"><b>100</b><span>trees per fit</span></div>
+      <div class="hstat"><b>0</b><span>lookahead leaks</span></div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<section class="section" id="benchmarks">
+  <div class="sec-head">
+    <span class="eyebrow">Measured, not claimed</span>
+    <h2>The honest benchmark</h2>
+    <p class="sec-sub">
+      1,231 walk-forward signals per stock on real yfinance data, embargo gap equal to the
+      forecast horizon. Every prediction scored against the majority-class baseline.
+    </p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>5-session (weekly) direction</h3>
+      <table class="tbl">
+        <thead><tr><th>Stock</th><th>Hit rate</th><th>Baseline</th><th>Edge</th><th>AUC</th></tr></thead>
+        <tbody>
+          <tr><td>RELIANCE</td><td>50.5%</td><td>51.5%</td><td class="r">−1.1</td><td>0.498</td></tr>
+          <tr><td>TCS</td><td>49.5%</td><td>52.3%</td><td class="r">−2.9</td><td>0.496</td></tr>
+          <tr><td>HDFCBANK</td><td>51.1%</td><td>51.2%</td><td class="r">−0.1</td><td>0.511</td></tr>
+          <tr><td>INFY</td><td>53.4%</td><td>51.7%</td><td class="g">+1.7</td><td>0.528</td></tr>
+          <tr><td>SBIN</td><td>47.9%</td><td>56.1%</td><td class="r">−8.1</td><td>0.479</td></tr>
+        </tbody>
+        <tfoot><tr><td>Mean</td><td>50.5%</td><td>52.5%</td><td class="r">−2.1</td><td>0.502</td></tr></tfoot>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>1-session (daily) direction</h3>
+      <table class="tbl">
+        <thead><tr><th>Stock</th><th>Hit rate</th><th>Baseline</th><th>Edge</th><th>AUC</th></tr></thead>
+        <tbody>
+          <tr><td>RELIANCE</td><td>51.9%</td><td>50.5%</td><td class="g">+1.4</td><td>0.526</td></tr>
+          <tr><td>TCS</td><td>52.3%</td><td>52.5%</td><td class="r">−0.2</td><td>0.518</td></tr>
+          <tr><td>HDFCBANK</td><td>48.3%</td><td>50.3%</td><td class="r">−1.9</td><td>0.482</td></tr>
+          <tr><td>INFY</td><td>49.9%</td><td>51.3%</td><td class="r">−1.4</td><td>0.498</td></tr>
+          <tr><td>SBIN</td><td>50.1%</td><td>53.1%</td><td class="r">−3.0</td><td>0.499</td></tr>
+        </tbody>
+        <tfoot><tr><td>Mean</td><td>50.5%</td><td>51.5%</td><td class="r">−1.0</td><td>0.505</td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout">
+    <div class="callout-icon">⚖️</div>
+    <div>
+      <h4>Read this before you trade anything</h4>
+      <p>
+        Mean hit rate is <b>50.5%</b> and mean ROC AUC is <b>0.50</b> — statistically a coin flip.
+        The edge over baseline is negative on 8 of 10 stock/horizon combinations, and every result
+        sits inside the ±2.8 point confidence interval of a 50% coin flip.
+        The <em>pipeline</em> is correct and auditable, which is exactly why you can trust this result.
+        The <em>signal</em> is not yet tradable.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="sec-head">
+    <span class="eyebrow">What you get</span>
+    <h2>Built for research, not for hype</h2>
+  </div>
+  <div class="grid-3">
+    <div class="feat">
+      <div class="feat-ico">🕐</div>
+      <h3>5-year prediction replay</h3>
+      <p>Expanding walk-forward refits every 21 sessions with a horizon-sized embargo, so no signal date can ever see its own outcome.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-ico">📈</div>
+      <h3>Next-week UP / DOWN</h3>
+      <p>One explicit call per session with the probability of that direction — labelled P(UP) or P(DOWN) so the word and the figure always agree.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-ico">🌲</div>
+      <h3>Tree consensus</h3>
+      <p>How many of the 100 individual trees voted UP, graded as high, moderate or divided forest.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-ico">🧭</div>
+      <h3>Regime detection</h3>
+      <p>Bullish momentum, bearish trend, volatility expansion or range-bound consolidation — with the implication for each.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-ico">⚡</div>
+      <h3>Anomaly isolation</h3>
+      <p>An Isolation Forest flags institutional volume surges and volatility breakouts before they blend into the average.</p>
+    </div>
+    <div class="feat">
+      <div class="feat-ico">🗓️</div>
+      <h3>Calendar patterns</h3>
+      <p>Weekday, month, day-of-month, intraday window and NSE event cycles — Diwali, Budget, F&amp;O expiry, fiscal year-end.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="sec-head">
+    <span class="eyebrow">Pipeline</span>
+    <h2>How a prediction is made</h2>
+  </div>
+  <div class="steps">
+    <div class="step"><b>01</b><h4>Fetch</h4><p>Real NSE daily OHLCV, up to 7 years, via yfinance. Live quotes from Google Finance.</p></div>
+    <div class="step"><b>02</b><h4>Engineer</h4><p>22 technical features — momentum, moving averages, volatility, volume, RSI, MACD, ATR.</p></div>
+    <div class="step"><b>03</b><h4>Train</h4><p>Random Forest, 100 trees, depth 5, balanced classes, out-of-bag scoring on past data only.</p></div>
+    <div class="step"><b>04</b><h4>Validate</h4><p>Chronological 80/20 split plus 5 walk-forward folds. Every score compared to the majority-class baseline.</p></div>
+    <div class="step"><b>05</b><h4>Decide</h4><p>Probability of UP or DOWN for each of the next five sessions, with regime and consensus context.</p></div>
+  </div>
+</section>
+
+<section class="section alt">
+  <div class="sec-head">
+    <span class="eyebrow">Stack</span>
+    <h2>Open, boring, reproducible</h2>
+  </div>
+  <div class="tags">
+    <span class="tag">Python 3.14</span><span class="tag">Streamlit 1.65</span>
+    <span class="tag">scikit-learn</span><span class="tag">pandas</span>
+    <span class="tag">NumPy</span><span class="tag">Plotly</span>
+    <span class="tag">yfinance</span><span class="tag">joblib</span>
+    <span class="tag">pytest · 39 tests</span><span class="tag">MCP tools</span>
+    <span class="tag">Power BI CSV export</span>
+  </div>
+</section>
+
+<section class="cta-band">
+  <h2>Put the numbers in front of you.</h2>
+  <p>Search any NSE stock, pin it, and read one clear next-week call.</p>
+  <a class="btn btn-primary btn-lg" id="band-cta" href="#">Open the live app</a>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <div class="brand"><span class="brand-mark">🐂</span><span class="brand-text">BIG BULL<small>AI direction engine · NSE</small></span></div>
+      <p class="foot-note">
+        Probabilistic statistical model output for research and education.
+        Past accuracy does not predict future results. Not investment advice.
+      </p>
+    </div>
+    <div class="foot-links">
+      <a href="#benchmarks">Benchmarks</a>
+      <a href="#top">Overview</a>
+      <a id="foot-cta" href="#">Live app</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>
