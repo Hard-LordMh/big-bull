@@ -29,6 +29,11 @@ def evaluate_timing_signal(
     """
     Evaluates current market conditions to produce a disciplined research signal.
     Does not produce a signal unless strict statistical and trend filters are met.
+    
+    IMPORTANT DISCLAIMER: This is a research-only signal, not a trading recommendation.
+    The 58% threshold is a research parameter, not a validated trading threshold.
+    Past performance does not guarantee future results.
+    Always conduct your own analysis before making trading decisions.
     """
     signal = "Hold / No Signal"
     reason = "Model probability or trend filters did not exceed research threshold."
@@ -37,12 +42,12 @@ def evaluate_timing_signal(
     risk_reward = None
     invalidation_rules = []
 
-    # Potential Buy Conditions:
-    # 1. Model UP Probability >= threshold
+    # Potential Buy Conditions (RESEARCH ONLY):
+    # 1. Model UP Probability >= threshold (research parameter, not validated)
     # 2. RSI is not severely overbought (< 72)
     # 3. Price is not extended excessively above 20-day SMA (< +6%)
     if prob_up >= confidence_threshold and rsi_val < 72 and close_vs_sma20 < 0.06:
-        signal = "Potential Buy"
+        signal = "Potential Buy (Research Signal)"
         # Proposed entry at next market open ~ current close
         stop_loss = round(latest_close - (1.5 * atr_val), 2)
         target_price = round(latest_close + (2.5 * atr_val), 2)
@@ -56,11 +61,11 @@ def evaluate_timing_signal(
             "Broad market NIFTY index falls over 1.5% in a single session."
         ]
 
-    # Potential Sell Conditions:
-    # 1. Model DOWN Probability >= threshold
+    # Potential Sell Conditions (RESEARCH ONLY):
+    # 1. Model DOWN Probability >= threshold (research parameter, not validated)
     # 2. RSI is not severely oversold (> 28)
     elif prob_down >= confidence_threshold and rsi_val > 28:
-        signal = "Potential Sell"
+        signal = "Potential Sell (Research Signal)"
         stop_loss = round(latest_close + (1.5 * atr_val), 2)
         target_price = round(latest_close - (2.5 * atr_val), 2)
         risk = stop_loss - latest_close
@@ -87,7 +92,8 @@ def evaluate_timing_signal(
         "atr_14_inr": round(atr_val, 2),
         "estimated_cost_bps": cost_bps,
         "rationale": reason,
-        "invalidation_rules": invalidation_rules
+        "invalidation_rules": invalidation_rules,
+        "disclaimer": "RESEARCH SIGNAL ONLY - Not a trading recommendation. The 58% threshold is a research parameter without validated backtesting. Past performance does not guarantee future results."
     }
 
 

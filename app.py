@@ -35,7 +35,8 @@ from stock_model import (
     predict_5day_trajectory,
     walk_forward_prediction_history,
     summarize_prediction_history,
-    predict_next_week
+    predict_next_week,
+    determine_trading_horizon_tag
 )
 from pattern_analysis import (
     analyze_day_of_week,
@@ -109,7 +110,6 @@ else:
             {"name": "BANK NIFTY", "price": 55256.65, "change": 741.60, "change_pct": 1.36}
         ]
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # PAGE CONFIG
 # ─────────────────────────────────────────────────────────────────────────────
@@ -140,6 +140,213 @@ st.markdown("""
         padding-bottom: 2rem;
         max-width: 1500px;
     }
+
+    /* Instagram Story / Reel UI Styles */
+    .insta-story-ring {
+        background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+        padding: 3px;
+        border-radius: 50%;
+        display: inline-block;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    .insta-story-ring:hover {
+        transform: scale(1.08);
+    }
+    .insta-story-avatar {
+        background: #1E293B;
+        color: #F8FAFC;
+        border-radius: 50%;
+        width: 52px;
+        height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.8rem;
+        border: 2px solid #0F172A;
+    }
+    .insta-reel-card {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 20px rgba(59, 130, 246, 0.1);
+        position: relative;
+    }
+    .insta-badge-up {
+        background: rgba(16, 185, 129, 0.15);
+        border: 1px solid #10B981;
+        color: #34D399;
+        padding: 0.2rem 0.65rem;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.8rem;
+    }
+    .insta-badge-down {
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid #EF4444;
+        color: #F87171;
+        padding: 0.2rem 0.65rem;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.8rem;
+    }
+
+    /* ── Minimal prediction UI (light theme) ───────────────── */
+    .bb-hero {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.35rem 0 0.6rem;
+    }
+    .bb-brand { display: flex; align-items: center; gap: 0.65rem; }
+    .bb-brand-mark {
+        width: 40px; height: 40px; border-radius: 12px;
+        background: linear-gradient(135deg, #f97316, #e11d48, #9333ea);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; box-shadow: 0 4px 14px -4px #9333ea;
+    }
+    .bb-brand-name { font-size: 1.3rem; font-weight: 800; letter-spacing: 0.06em; color: #0F172A; }
+    .bb-brand-sub { font-size: 0.7rem; color: #64748B; letter-spacing: 0.04em; }
+    .bb-status { font-size: 0.75rem; color: #64748B; }
+
+    .bb-strip { display: flex; gap: 0.4rem; overflow-x: auto; margin-bottom: 0.9rem; }
+    .bb-pill {
+        background: #F8FAFC; border: 1px solid #E2E8F0;
+        border-radius: 20px; padding: 0.28rem 0.75rem;
+        font-size: 0.72rem; white-space: nowrap; color: #334155;
+    }
+
+    .bb-section-label {
+        font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em;
+        color: #94A3B8; margin: 0.4rem 0 0.55rem; font-weight: 700;
+    }
+
+    /* Story rings */
+    .bb-story {
+        border-radius: 16px; padding: 0.85rem 0.4rem; text-align: center;
+        background: #FFFFFF; border: 1px solid #E2E8F0;
+        box-shadow: 0 2px 8px -3px rgba(15, 23, 42, 0.10);
+        margin-bottom: 0.35rem; transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .bb-story:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 22px -10px rgba(15, 23, 42, 0.28);
+    }
+    .bb-ring-up {
+        border-color: #10B981;
+        background: linear-gradient(#FFFFFF, #ECFDF5);
+        box-shadow: 0 4px 14px -6px rgba(5,150,105,0.55), 0 0 0 3px rgba(16,185,129,0.18);
+    }
+    .bb-ring-down {
+        border-color: #EF4444;
+        background: linear-gradient(#FFFFFF, #FEF2F2);
+        box-shadow: 0 4px 14px -6px rgba(220,38,38,0.50), 0 0 0 3px rgba(239,68,68,0.16);
+    }
+    .bb-ring-unknown {
+        border-color: #CBD5E1; border-style: dashed; background: #F8FAFC; box-shadow: none;
+    }
+    .bb-ring-empty { border-style: dashed; border-color: #CBD5E1; box-shadow: none; }
+    .bb-story-badge {
+        display: inline-block; margin-top: 0.3rem;
+        padding: 0.1rem 0.5rem; border-radius: 20px;
+        font-size: 0.66rem; font-weight: 800; letter-spacing: 0.02em;
+    }
+
+    /* Whole story card is clickable: transparent button overlays the card.
+       Streamlit puts the container class .st-key-<key> on the wrapper div. */
+    [class*="st-key-storycard_"] { position: relative; }
+    [class*="st-key-storycard_"] button {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        width: 100%; height: 100%;
+        opacity: 0;
+        z-index: 5;
+        cursor: pointer;
+        border: none;
+        background: transparent;
+    }
+    [class*="st-key-storycard_"] button:focus-visible {
+        opacity: 0.25;
+        outline: 2px solid #2563EB;
+    }
+    [class*="st-key-storycard_"] .bb-story { margin-bottom: 0; }
+
+    .bb-story-active-tag {
+        position: absolute; top: 6px; right: 8px; z-index: 6;
+        font-size: 0.55rem; font-weight: 800; letter-spacing: 0.06em;
+        color: #2563EB; background: #DBEAFE;
+        padding: 0.05rem 0.35rem; border-radius: 20px;
+        pointer-events: none;
+    }
+    .bb-story-avatar {
+        width: 48px; height: 48px; margin: 0 auto 0.4rem; border-radius: 50%;
+        background: linear-gradient(135deg, #F1F5F9, #E2E8F0);
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 0.78rem; color: #334155;
+        border: 2px solid #FFFFFF;
+        box-shadow: 0 2px 6px -2px rgba(15,23,42,0.20);
+    }
+    .bb-story-plus { color: #94A3B8; font-size: 1.4rem; }
+    .bb-story-sym { font-weight: 800; font-size: 0.82rem; color: #0F172A; }
+    .bb-story-dir { font-size: 0.68rem; color: #64748B; margin-top: 0.2rem; font-weight: 600; }
+    .bb-story-pct { font-size: 0.66rem; color: #94A3B8; margin-top: 0.1rem; }
+
+    /* Prediction hero */
+    .bb-predict {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 22px; padding: 1.5rem 1.6rem;
+        box-shadow: 0 10px 30px -16px rgba(15, 23, 42, 0.35);
+        transition: box-shadow 0.4s ease;
+    }
+    .bb-predict-top {
+        display: flex; justify-content: space-between; align-items: flex-start;
+        border-bottom: 1px solid #F1F5F9; padding-bottom: 1rem;
+    }
+    .bb-predict-sym {
+        font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; color: #0F172A; line-height: 1.1;
+    }
+    .bb-predict-name { font-size: 0.78rem; color: #94A3B8; }
+    .bb-predict-price { font-size: 1.2rem; font-weight: 800; text-align: right; color: #0F172A; }
+    .bb-up { color: #059669; font-size: 0.8rem; font-weight: 700; }
+    .bb-down { color: #DC2626; font-size: 0.8rem; font-weight: 700; }
+
+    .bb-predict-dir { display: flex; align-items: center; gap: 1.1rem; padding: 1.3rem 0 1rem; }
+    .bb-predict-dir > div:last-child { margin-left: auto; }
+    .bb-predict-arrow { font-size: 3.2rem; font-weight: 800; line-height: 1; }
+    .bb-predict-word { font-size: 2.1rem; font-weight: 800; letter-spacing: 0.01em; line-height: 1.05; }
+    .bb-predict-horizon { font-size: 0.76rem; color: #94A3B8; margin-top: 0.15rem; }
+    .bb-predict-prob { font-size: 2.8rem; font-weight: 800; line-height: 1; text-align: right; }
+    .bb-predict-prob-sub {
+        font-size: 0.6rem; font-weight: 700; text-align: right;
+        margin-top: 0.15rem; opacity: 0.75;
+    }
+
+    .bb-meter {
+        height: 8px; background: #F1F5F9; border-radius: 5px; overflow: hidden;
+    }
+    .bb-meter-fill { height: 100%; border-radius: 5px; transition: width 0.6s ease; }
+
+    .bb-predict-stats {
+        display: grid; grid-template-columns: repeat(4, 1fr);
+        gap: 0.6rem; margin-top: 1.2rem;
+    }
+    .bb-predict-stats > div {
+        background: var(--soft); border-radius: 14px;
+        padding: 0.7rem 0.4rem; text-align: center;
+    }
+    .bb-predict-stats span { display: block; font-size: 1.1rem; font-weight: 800; color: #0F172A; }
+    .bb-predict-stats small { display: block; font-size: 0.64rem; color: #94A3B8; margin-top: 0.15rem; }
+
+    /* Pinned tiles */
+    .bb-tile {
+        border-radius: 14px; padding: 0.65rem 0.8rem;
+        background: #FFFFFF; border: 1px solid #E2E8F0; margin-bottom: 0.3rem;
+        box-shadow: 0 2px 6px -3px rgba(15,23,42,0.10);
+    }
+    .bb-tile-active { border-color: #93C5FD; background: #EFF6FF; }
+    .bb-tile-sym { font-weight: 800; font-size: 0.86rem; color: #0F172A; }
+    .bb-tile-price { font-size: 0.78rem; color: #64748B; margin-top: 0.15rem; }
 
     /* Range bar track */
     .bb-range-track {
@@ -426,13 +633,74 @@ def load_market_indices() -> list:
     return fetch_market_indices()
 
 
+def render_market_indices_ribbon():
+    """Compact live index strip (NIFTY 50 / SENSEX / BANK NIFTY)."""
+    indices = load_market_indices()
+    chips = []
+    for idx in indices:
+        change = float(idx.get("change", 0.0))
+        color = "#10B981" if change >= 0 else "#EF4444"
+        chips.append(f"""
+        <div style="display:inline-flex; align-items:center; gap:0.4rem;
+                    background:rgba(30,41,59,0.7); border:1px solid #334155;
+                    border-radius:20px; padding:0.3rem 0.7rem; margin-right:0.4rem;">
+            <span style="font-size:0.72rem; color:#94A3B8;">{idx.get('name', '')}</span>
+            <span style="font-size:0.78rem; font-weight:700;">{idx.get('price', 0):,.2f}</span>
+            <span style="font-size:0.72rem; color:{color}; font-weight:600;">
+                {change:+.2f} ({idx.get('change_pct', 0.0):+.2f}%)
+            </span>
+        </div>
+        """)
+    st.markdown(f"<div style='margin:0.2rem 0 0.6rem;'>{''.join(chips)}</div>",
+                unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PIN PERSISTENCE
+# Pinned stocks survive refreshes and are never re-seeded once the user changes
+# them. State lives in the URL query string (?pins=TCS.NS,HDFCBANK.NS), which
+# persists across reloads and works on both localhost and Streamlit Cloud.
+# The sentinel value "none" means "user unpinned everything".
+# ─────────────────────────────────────────────────────────────────────────────
+PINS_PARAM = "pins"
+PINS_NONE = "none"
+SEED_PINS = ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS"]
+MAX_PINS = 3
+
+
+def read_pins_from_url():
+    """Returns the pinned list stored in the URL, or None if the user has never pinned."""
+    try:
+        raw = st.query_params.get(PINS_PARAM)
+    except Exception:
+        return None
+    if raw is None:
+        return None
+    if isinstance(raw, (list, tuple)):
+        raw = raw[0] if raw else ""
+    raw = str(raw).strip()
+    if not raw or raw == PINS_NONE:
+        return []
+    return [p.strip().upper() for p in raw.split(",") if p.strip()]
+
+
+def write_pins_to_url(pins):
+    """Persists the pinned list into the URL so it survives a refresh."""
+    try:
+        st.query_params[PINS_PARAM] = ",".join(pins) if pins else PINS_NONE
+    except Exception:
+        pass
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SESSION STATE
 # ─────────────────────────────────────────────────────────────────────────────
+_url_pins = read_pins_from_url()
+
 _defaults = {
     "ticker": "RELIANCE.NS",
-    "pinned_companies": ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS"],
-    "favourites": ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS"],
+    "pinned_companies": list(SEED_PINS),
+    "favourites": list(SEED_PINS),
     "horizon": 5,
     "cost_bps": 15.0,
     "risk_profile": "Moderate",
@@ -444,6 +712,11 @@ _defaults = {
 for k, v in _defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
+# URL always wins, so an unpin is never undone by the seed defaults.
+if _url_pins is not None:
+    st.session_state["pinned_companies"] = _url_pins
+    st.session_state["favourites"] = _url_pins or st.session_state["favourites"]
 
 if "daily_df" not in st.session_state:
     st.session_state["daily_df"] = load_real_daily_data(st.session_state["ticker"])
@@ -457,6 +730,11 @@ def set_active_stock(symbol: str):
     with st.spinner(f"Loading {norm}…"):
         st.session_state["daily_df"] = load_real_daily_data(norm)
         st.session_state["intraday_df"] = load_real_intraday_data(norm)
+        
+        # Check for stale data
+        if not st.session_state["daily_df"].empty and 'is_stale' in st.session_state["daily_df"].columns:
+            if st.session_state["daily_df"]["is_stale"].iloc[-1]:
+                st.warning("⚠️ Market data is stale (last data point is > 2 trading days old). Predictions may not reflect current market conditions.", icon=":material/warning:")
     st.session_state["model_cache"] = {}
 
 
@@ -479,6 +757,7 @@ def toggle_favourite(symbol: str):
         st.toast(f"Saved {norm} to favourites", icon=":material/bookmark_added:")
     st.session_state["favourites"] = favs
     st.session_state["pinned_companies"] = pinned
+    write_pins_to_url(pinned)
 
 
 def toggle_pin_stock(symbol: str):
@@ -488,7 +767,7 @@ def toggle_pin_stock(symbol: str):
         pinned.remove(norm)
         st.toast(f"Unpinned {norm}", icon=":material/pin_drop:")
     else:
-        if len(pinned) < 3:
+        if len(pinned) < MAX_PINS:
             pinned.append(norm)
             st.toast(f"Pinned {norm}", icon=":material/push_pin:")
         else:
@@ -496,6 +775,7 @@ def toggle_pin_stock(symbol: str):
             pinned.append(norm)
             st.toast(f"Replaced {old} → {norm}", icon=":material/push_pin:")
     st.session_state["pinned_companies"] = pinned
+    write_pins_to_url(pinned)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -611,26 +891,42 @@ def get_history_prediction_bundle(ticker_symbol: str, horizon: int = 5, years: i
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_next_week_bias(symbol: str) -> dict:
-    """Lightweight next-week UP/DOWN bias used by the pinned watchlist cards."""
+    """Single source of truth for direction + probability.
+
+    Uses the SAME dataset as the main dashboard pipeline (load_real_daily_data, 3y)
+    so the story cards and the prediction card can never disagree.
+    """
     try:
-        df = load_long_history_data(symbol, years=2)
+        df = load_real_daily_data(symbol)
         if df is None or df.empty or len(df) < 120:
             return {"ok": False}
         is_valid, _, _, clean_df = validate_stock_dataframe(df, min_rows=120)
         if not is_valid:
             return {"ok": False}
-        wk = predict_next_week(clean_df, sessions=5)
-        if wk.empty:
+
+        # predict_next_week() requires the canonical feature list; it builds the
+        # indicator columns internally from the raw OHLCV frame.
+        wk = predict_next_week(clean_df, list(FEATURE_COLUMNS), sessions=5)
+        if wk is None or wk.empty:
             return {"ok": False}
+
+        prob_up = float(wk["Prob_UP_Pct"].mean())
+        direction = "UP" if prob_up >= 50 else "DOWN"
         return {
             "ok": True,
-            "direction": wk.attrs.get("week_direction", "UP"),
-            "prob_up": wk.attrs.get("week_prob_up", 50.0),
+            "direction": direction,
+            "prob_up": round(prob_up, 1),
+            "prob_down": round(100.0 - prob_up, 1),
+            # Probability of the direction actually being shown, so the badge
+            # number and the arrow always agree.
+            "prob_direction": round(prob_up if direction == "UP" else 100.0 - prob_up, 1),
+            "reference_close": wk.attrs.get("reference_close"),
             "reference_date": wk.attrs.get("reference_date", ""),
             "days_up": int((wk["Predicted_Direction"] == "UP").sum()),
+            "sessions": int(len(wk)),
         }
-    except Exception:
-        return {"ok": False}
+    except Exception as ex:
+        return {"ok": False, "error": f"{type(ex).__name__}: {ex}"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -818,87 +1114,6 @@ def render_market_header():
         """, unsafe_allow_html=True)
 
 
-def render_market_indices_ribbon():
-    """Market indices KPI row (NIFTY 50, SENSEX, BANK NIFTY)."""
-    indices = load_market_indices()
-    cols = st.columns(len(indices))
-    for i, idx in enumerate(indices):
-        with cols[i]:
-            chg = idx["change"]
-            pct = idx["change_pct"]
-            sign = "+" if chg >= 0 else ""
-            daily_vals = [idx["price"] * (1 + 0.001 * (j - 5)) for j in range(10)]
-            st.metric(
-                label=idx["name"],
-                value=f"₹{idx['price']:,.2f}",
-                delta=f"{sign}{chg:,.2f} ({sign}{pct:.2f}%)",
-                border=True,
-                chart_data=daily_vals,
-                chart_type="line"
-            )
-
-
-def render_search_bar():
-    """Prominent search with autocomplete, quick-access chips, and favourite button."""
-    with st.container(border=True):
-        st.markdown("#### :material/search: Search NSE stocks")
-        st.caption("Search by company name or symbol · Click a chip for quick access")
-
-        # Quick-access chips
-        quick_stocks = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "WIPRO", "BAJFINANCE", "SBIN"]
-        chip_sym = st.pills(
-            "Popular stocks",
-            quick_stocks,
-            label_visibility="collapsed",
-            key="quick_chips",
-            selection_mode="single"
-        )
-        if chip_sym:
-            set_active_stock(chip_sym + ".NS")
-            st.rerun()
-
-        # Text search
-        search_col, btn_col = st.columns([5, 1])
-        with search_col:
-            search_input = st.text_input(
-                "Search",
-                placeholder="Search NSE stocks by company name or symbol…",
-                key="main_search_input",
-                label_visibility="collapsed"
-            )
-        with btn_col:
-            is_fav = st.session_state["ticker"] in st.session_state["favourites"]
-            fav_label = "Saved ★" if is_fav else "Save ☆"
-            if st.button(fav_label, key="main_fav_btn", type="primary" if is_fav else "secondary"):
-                toggle_favourite(st.session_state["ticker"])
-                st.rerun()
-
-        if search_input and len(search_input) >= 2:
-            with st.spinner("Searching…"):
-                matches = search_companies(search_input)
-            if matches:
-                options = [f"{m['symbol']} — {m['name']}" for m in matches[:8]]
-                chosen = st.selectbox(
-                    "Results",
-                    options,
-                    key="search_results_select",
-                    label_visibility="collapsed"
-                )
-                open_col, pin_col = st.columns([2, 1])
-                with open_col:
-                    if st.button("Open stock →", type="primary", key="search_open_btn"):
-                        sym = chosen.split(" — ")[0]
-                        set_active_stock(sym)
-                        st.rerun()
-                with pin_col:
-                    if st.button("Pin to watchlist", key="search_pin_btn"):
-                        sym = chosen.split(" — ")[0]
-                        toggle_pin_stock(sym)
-                        st.rerun()
-            else:
-                st.caption("No matches found. Try a different name or NSE symbol.")
-
-
 def render_stock_info_card(quote: dict):
     """Displays the selected stock's key information."""
     sym = quote["clean_symbol"]
@@ -913,8 +1128,18 @@ def render_stock_info_card(quote: dict):
     is_fav = st.session_state["ticker"] in st.session_state["favourites"]
     avatar = get_company_initials(name)
     data_note = "Latest available close"
+    
+    # Check for fallback or stale data
+    is_fallback = quote.get("is_fallback", False)
+    data_source = quote.get("source", "Unknown")
 
     with st.container(border=True):
+        # Show warning if using fallback data
+        if is_fallback:
+            st.warning("⚠️ Using synthetic fallback data - Real market data unavailable. This is NOT real market data.", icon=":material/warning:")
+        
+        # Show data source info
+        st.caption(f"Data source: {data_source}", help="yfinance provides delayed data, not real-time exchange feeds")
         h1, h2, h3 = st.columns([3, 3, 2])
 
         with h1:
@@ -1020,9 +1245,9 @@ def render_range_bars(quote: dict):
 
 
 def render_prediction_control_bar():
-    """Horizontal prediction control bar: mode selector + generate button."""
+    """Horizontal prediction control bar: mode selector."""
     with st.container(border=True):
-        c_mode, c_range, c_btn = st.columns([3, 2, 1.5])
+        c_mode, c_range = st.columns([3, 2])
         with c_mode:
             mode = st.segmented_control(
                 "Prediction mode",
@@ -1048,18 +1273,6 @@ def render_prediction_control_bar():
             )
             if chart_range:
                 st.session_state["chart_time_filter"] = chart_range
-
-        with c_btn:
-            generate = st.button(
-                "Generate prediction",
-                type="primary",
-                icon=":material/bolt:",
-                key="generate_pred_btn",
-                use_container_width=True
-            )
-            if generate:
-                st.session_state["model_cache"] = {}
-                st.toast("Running prediction pipeline…", icon=":material/auto_awesome:")
     return st.session_state.get("pred_mode", "5 Days")
 
 
@@ -1308,6 +1521,9 @@ def render_history_and_nextweek_card(ticker_symbol: str, years: int = 5):
     history = pack["history"]
     summary = pack["summary"]
     next_week = pack["next_week"]
+    
+    # Determine trading horizon tag based on 5-year performance
+    horizon_tag = determine_trading_horizon_tag(history, summary)
 
     with st.container(border=True):
         st.subheader(f"{years}-year model prediction history", icon=":material/history:")
@@ -1332,6 +1548,27 @@ def render_history_and_nextweek_card(ticker_symbol: str, years: int = 5):
                 st.metric("Model calls replayed", f"{summary.get('signals', 0):,}", border=True)
             with m4:
                 st.metric("Avg actual move", f"{summary.get('avg_return_pct', 0.0):+.2f}%", border=True)
+            
+            # Display trading horizon tag near accuracy metrics
+            st.markdown(
+                f"""
+                <div style="margin-top: 1rem; padding: 0.75rem; background-color: {horizon_tag['color']}15; 
+                     border-left: 4px solid {horizon_tag['color']}; border-radius: 4px;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-weight: 700; color: {horizon_tag['color']}; font-size: 1.1rem;">
+                            {horizon_tag['tag']}
+                        </span>
+                        <span style="font-size: 0.8rem; color: #64748B; margin-left: auto;">
+                            Confidence: {horizon_tag['confidence']}
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #475569; margin-top: 0.25rem;">
+                        {horizon_tag['rationale']}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
             tab_log, tab_year, tab_chart = st.tabs(
                 ["Signal log", "Year-by-year", "Accuracy trend"]
@@ -1415,10 +1652,10 @@ def render_history_and_nextweek_card(ticker_symbol: str, years: int = 5):
 
         wk_display = next_week[[
             "Trading_Day", "Trading_Date", "Weekday", "Predicted_Direction",
-            "Prob_UP_Pct", "Prob_DOWN_Pct", "Projected_Close_INR", "Change_vs_Prev_Pct"
+            "Prob_UP_Pct", "Prob_DOWN_Pct", "Reference_Close_INR", "Note"
         ]].copy()
         wk_display.columns = ["Session", "Date", "Day", "Prediction", "P(UP) %",
-                              "P(DOWN) %", "Projected close (₹)", "Change (%)"]
+                              "P(DOWN) %", "Reference close (₹)", "Note"]
         st.dataframe(
             wk_display,
             hide_index=True,
@@ -1441,6 +1678,394 @@ def render_history_and_nextweek_card(ticker_symbol: str, years: int = 5):
             "Probabilistic model output for research only. Each session is projected bar-by-bar "
             "with ATR bounds and re-scored by the Random Forest ensemble — not financial advice."
         )
+
+
+def render_future_prediction_graph(sym: str, lookback_days: int = 180):
+    """History chart + next-5-session direction probability bars for one stock.
+
+    Deliberately shows DIRECTION PROBABILITIES only — no synthetic price path,
+    matching predict_5day_trajectory()'s "no validated price forecast" policy.
+    """
+    with st.spinner(f"Building {sym} forecast chart…"):
+        df = load_real_daily_data(sym)
+        is_valid, errs, _, clean_df = validate_stock_dataframe(df, min_rows=120)
+        if not is_valid or clean_df is None or len(clean_df) < 60:
+            st.error(f"Chart data unavailable for {sym}: {errs[0] if errs else 'insufficient history'}")
+            return
+
+        from feature_engineering import FEATURE_COLUMNS
+        traj = predict_5day_trajectory(clean_df, list(FEATURE_COLUMNS), None)
+
+    if traj is None or traj.empty:
+        st.info(f"No forward projection available for {sym}.")
+        return
+
+    q = load_real_quote(sym)
+    last_close = float(clean_df["Close"].iloc[-1])
+
+    probs = traj["RF_Probability_UP"].astype(float).values
+    dirs = traj["Direction"].tolist()
+    labels = [d.replace("(", " ").replace(")", "") for d in traj["Trading_Date"].tolist()]
+    up_days = sum(1 for d in dirs if d == "UP")
+    avg_prob = float(probs.mean())
+    net_tilt = (avg_prob - 50.0) * 2.0
+    up = net_tilt >= 0
+    accent = "#059669" if up else "#DC2626"
+    bar_colors = ["#059669" if d == "UP" else "#DC2626" for d in dirs]
+
+    # ── Panel 1: factual price history (no forecast overlay) ────────────────
+    hist = clean_df.tail(lookback_days).reset_index(drop=True)
+    fig_hist = build_candlestick_chart(hist, height=250, show_volume=False)
+    fig_hist.update_layout(
+        xaxis_rangeslider_visible=False,
+        margin=dict(l=5, r=5, t=28, b=5),
+        title=dict(
+            text=f"{sym.replace('.NS', '')} · last {len(hist)} sessions",
+            font=dict(size=13, color="#64748B"), x=0.01, xanchor="left",
+        ),
+    )
+    st.plotly_chart(fig_hist, use_container_width=True)
+
+    # ── Panel 2: next 5 sessions direction probability ──────────────────────
+    fig_p = go.Figure()
+    fig_p.add_trace(go.Bar(
+        x=labels, y=probs,
+        marker=dict(color=bar_colors, line=dict(width=0)),
+        text=[f"{p:.0f}%" for p in probs],
+        textposition="outside",
+        textfont=dict(size=12, weight="bold", color="#0F172A"),
+        hovertemplate="<b>%{x}</b><br>P(UP) %{y:.1f}%<extra></extra>",
+        showlegend=False,
+    ))
+    fig_p.add_hline(y=50, line_color="#94A3B8", line_width=1.5, line_dash="dot")
+    fig_p.add_annotation(
+        x=1, y=50, xref="paper", yref="y", text="coin flip 50%",
+        showarrow=False, xanchor="right", yshift=10,
+        font=dict(size=10, color="#94A3B8"),
+    )
+    fig_p.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        height=260, margin=dict(l=5, r=5, t=42, b=5),
+        yaxis=dict(range=[0, 105], showgrid=True, gridcolor="#F1F5F9",
+                   title="Probability UP (%)", ticksuffix="%"),
+        xaxis=dict(showgrid=False, tickfont=dict(size=11)),
+        title=dict(
+            text=f"Next 5 sessions · predicted {net_tilt:+.0f}% tilt",
+            font=dict(size=13, color=accent), x=0.01, xanchor="left",
+        ),
+    )
+    st.plotly_chart(fig_p, use_container_width=True)
+
+    st.html(f"""
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.6rem;">
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;
+                    padding:0.55rem 0.9rem;font-size:0.78rem;">
+            <b style="color:#0F172A;">Week tilt</b>
+            <span style="color:{accent};font-weight:800;">{'UP' if up else 'DOWN'} {net_tilt:+.0f}%</span>
+        </div>
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;
+                    padding:0.55rem 0.9rem;font-size:0.78rem;">
+            <b style="color:#0F172A;">Avg P(UP)</b>
+            <span style="color:#0F172A;font-weight:800;">{avg_prob:.1f}%</span>
+        </div>
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;
+                    padding:0.55rem 0.9rem;font-size:0.78rem;">
+            <b style="color:#0F172A;">Sessions UP</b>
+            <span style="color:#0F172A;font-weight:800;">{up_days}/5</span>
+        </div>
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;
+                    padding:0.55rem 0.9rem;font-size:0.78rem;">
+            <b style="color:#0F172A;">Reference close</b>
+            <span style="color:#0F172A;font-weight:800;">₹{q.get('price') or last_close:,.2f}</span>
+        </div>
+    </div>
+    """)
+    st.caption(
+        "Bars are the Random Forest's probability of an UP close for each session "
+        "(decayed for horizon uncertainty). Direction probabilities only — no price "
+        "forecast is produced. Statistical output for research, not advice."
+    )
+
+
+def render_minimal_header():
+    """Compact brand header with a single live-market strip."""
+    q_indices = load_market_indices()
+    pills = "".join(
+        f"<span class='bb-pill'><b>{i['name']}</b> {i['price']:,.0f} "
+        f"<span style='color:#10B981'>+{i['change_pct']:.2f}%</span></span>"
+        for i in q_indices
+    )
+    status = "🟢 Market open" if is_market_open() else "🔴 Market closed"
+    st.html(f"""
+    <div class="bb-hero">
+        <div class="bb-brand">
+            <span class="bb-brand-mark">🐂</span>
+            <div>
+                <div class="bb-brand-name">BIG BULL</div>
+                <div class="bb-brand-sub">AI direction engine · NSE</div>
+            </div>
+        </div>
+        <div class="bb-status">{status}</div>
+    </div>
+    <div class="bb-strip">{pills}</div>
+    """)
+
+
+def render_minimal_search():
+    """Search bar with realtime pin / unpin for the selected stock."""
+    sym = st.session_state["ticker"]
+    pinned = st.session_state["pinned_companies"]
+    is_pinned = sym in pinned
+
+    col_search, col_pin = st.columns([5, 1])
+    with col_search:
+        search_input = st.text_input(
+            "Search", value="", placeholder="Search any NSE stock…  (e.g. RELIANCE, TCS, INFY)",
+            label_visibility="collapsed", key="minimal_search"
+        )
+    with col_pin:
+        label = "Unpin" if is_pinned else "Pin"
+        icon = ":material/push_pin:" if not is_pinned else ":material/pin_drop:"
+        if st.button(f"{label} {sym}", icon=icon, use_container_width=True, key="minimal_pin_btn"):
+            toggle_pin_stock(sym)
+            st.rerun()
+
+    if search_input and len(search_input.strip()) >= 2:
+        matches = search_companies(search_input.strip())
+        if matches:
+            st.html("<div class='bb-section-label'>Results</div>")
+            cols = st.columns(min(len(matches), 5))
+            for i, m in enumerate(matches[:5]):
+                with cols[i]:
+                    m_sym = m.get("symbol", "")
+                    is_pin = m_sym in pinned
+                    if st.button(
+                        f"{'📌 ' if is_pin else ''}{m_sym.replace('.NS', '')}",
+                        use_container_width=True, key=f"srch_{m_sym}",
+                        help=f"{m.get('name', '')} — {'Unpin' if is_pin else 'Pin'}",
+                    ):
+                        set_active_stock(m_sym)
+                        toggle_pin_stock(m_sym)
+                        st.rerun()
+
+
+def render_stories_row():
+    """Instagram-style story rings: live prediction for every pinned stock.
+
+    Each card has: Open (select stock), Graph (show its future-prediction chart)
+    and Unpin. The graph target is held in session state so it survives reruns.
+    """
+    pinned = st.session_state["pinned_companies"]
+    if not pinned:
+        return
+
+    st.html("<div class='bb-section-label'>Your stories</div>")
+    cols = st.columns(min(len(pinned) + 1, 6))
+
+    for i, sym in enumerate(pinned[:5]):
+        with cols[i]:
+            q = load_real_quote(sym)
+            bias = get_next_week_bias(sym)
+            known = bool(bias.get("ok"))
+            up = known and bias.get("direction") == "UP"
+
+            if known:
+                arrow = "↑" if up else "↓"
+                ring_cls = "bb-ring-up" if up else "bb-ring-down"
+                badge_bg = "#ECFDF5" if up else "#FEF2F2"
+                badge_fg = "#047857" if up else "#B91C1C"
+                dir_text = bias.get("direction", "—")
+                # Show the probability of the direction on the badge, so the arrow,
+                # the word and the number can never disagree.
+                prob_text = f"{bias.get('prob_direction', 50):.0f}% {dir_text}"
+            else:
+                arrow = "•"
+                ring_cls = "bb-ring-unknown"
+                badge_bg = "#F1F5F9"
+                badge_fg = "#64748B"
+                dir_text = "No signal"
+                prob_text = "—"
+
+            initials = get_company_initials(q.get("name") or sym)
+            pct = f"{q['day_change_pct']:+.2f}%" if q.get("day_change_pct") is not None else ""
+            is_chart_open = st.session_state.get("graph_ticker") == sym
+            is_active = st.session_state["ticker"] == sym
+            card_key = "storycard_" + sym.replace(".", "_").replace("-", "_")
+
+            # Whole card is clickable: a transparent button is laid over it via CSS,
+            # so tapping anywhere on the story loads that stock on the dashboard.
+            with st.container(key=card_key):
+                if is_active:
+                    st.html(f'<div class="bb-story-active-tag">● viewing</div>')
+                st.html(f"""
+                <div class="bb-story {ring_cls}">
+                    <div class="bb-story-avatar">{initials}</div>
+                    <div class="bb-story-sym">{sym.replace('.NS', '')}</div>
+                    <div class="bb-story-badge"
+                         style="background:{badge_bg};color:{badge_fg};">
+                        {arrow} {dir_text}
+                    </div>
+                    <div class="bb-story-pct">{prob_text}</div>
+                    <div class="bb-story-pct">{pct}</div>
+                </div>
+                """)
+                if st.button(
+                    f"Load {sym.replace('.NS', '')} prediction",
+                    key=f"story_select_{sym}",
+                    help=f"Show {sym} on the dashboard",
+                ):
+                    if not is_active:
+                        set_active_stock(sym)
+                    st.rerun()
+
+            ga, gc2 = st.columns([3, 1])
+            with ga:
+                if st.button(
+                    "Close graph" if is_chart_open else "Graph",
+                    key=f"story_graph_{sym}",
+                    use_container_width=True,
+                    type="primary" if is_chart_open else "secondary",
+                ):
+                    st.session_state["graph_ticker"] = None if is_chart_open else sym
+                    st.rerun()
+            with gc2:
+                if st.button("✕", key=f"story_unpin_{sym}", help=f"Unpin {sym}",
+                             use_container_width=True):
+                    toggle_pin_stock(sym)
+                    st.rerun()
+
+    with cols[len(pinned[:5])]:
+        st.html("""
+        <div class="bb-story bb-ring-empty">
+            <div class="bb-story-avatar bb-story-plus">+</div>
+            <div class="bb-story-sym">Add</div>
+            <div class="bb-story-dir">—</div>
+            <div class="bb-story-pct">search above</div>
+        </div>
+        """)
+
+
+def render_minimal_prediction(latest_pred: dict, results: dict, quote: dict, next_week_pack: dict):
+    """The single prediction card.
+
+    Direction and probability come from ONE engine (get_next_week_bias) — the same
+    one the story cards use — so the two can never contradict each other.
+    The big number is the probability of the direction being shown, and it is
+    labelled P(UP) or P(DOWN) so the word and the figure always agree.
+    """
+    horizon = st.session_state["horizon"]
+    sessions = next_week_pack.get("sessions", horizon) if next_week_pack.get("ok") else horizon
+
+    if next_week_pack.get("ok"):
+        wk_dir = next_week_pack["direction"]
+        prob_display = next_week_pack["prob_direction"]
+        days_up = next_week_pack.get("days_up", 0)
+    else:
+        wk_dir = latest_pred["predicted_direction"]
+        prob_display = (latest_pred["probability_up"] if wk_dir == "UP"
+                        else latest_pred["probability_down"]) * 100.0
+        days_up = 0
+
+    wk_up = wk_dir == "UP"
+    prob_label = "P(UP)" if wk_up else "P(DOWN)"
+
+    metrics = results["test_metrics"]
+    acc = metrics["accuracy"] * 100.0
+    edge = acc - metrics["baseline_accuracy"] * 100.0
+
+    accent = "#059669" if wk_up else "#DC2626"
+    soft = "#ECFDF5" if wk_up else "#FEF2F2"
+    glow = ("0 14px 34px -18px rgba(5,150,105,0.65)" if wk_up
+            else "0 14px 34px -18px rgba(220,38,38,0.55)")
+    price = quote.get("price") or latest_pred["latest_close"]
+    change = quote.get("day_change_pct")
+
+    st.html(f"""
+    <div class="bb-predict" style="--accent:{accent};--soft:{soft};box-shadow:{glow};">
+        <div class="bb-predict-top">
+            <div>
+                <div class="bb-predict-sym">{quote.get('clean_symbol', st.session_state['ticker'])}</div>
+                <div class="bb-predict-name">{quote.get('name', '')}</div>
+            </div>
+            <div class="bb-predict-price">
+                ₹{price:,.2f}
+                <span class="{'bb-up' if (change or 0) >= 0 else 'bb-down'}">
+                    {(f'{change:+.2f}%' if change is not None else '')}
+                </span>
+            </div>
+        </div>
+
+        <div class="bb-predict-dir">
+            <span class="bb-predict-arrow">{'↑' if wk_up else '↓'}</span>
+            <div>
+                <div class="bb-predict-word" style="color:{accent};">
+                    {'BULLISH' if wk_up else 'BEARISH'}
+                </div>
+                <div class="bb-predict-horizon">{prob_label} · next {sessions} sessions</div>
+            </div>
+            <div>
+                <div class="bb-predict-prob" style="color:{accent};">{prob_display:.0f}%</div>
+                <div class="bb-predict-prob-sub" style="color:{accent};">
+                    {prob_label} probability
+                </div>
+            </div>
+        </div>
+
+        <div class="bb-meter">
+            <div class="bb-meter-fill" style="width:{prob_display:.1f}%;background:linear-gradient(90deg,{accent}80,{accent});"></div>
+        </div>
+
+        <div class="bb-predict-stats">
+            <div><span>{days_up}/{sessions}</span><small>Sessions UP</small></div>
+            <div><span>{acc:.0f}%</span><small>Accuracy</small></div>
+            <div><span class="{'bb-up' if edge >= 0 else 'bb-down'}">{edge:+.0f}%</span><small>vs baseline</small></div>
+            <div><span>{results['walk_forward_metrics']['mean_accuracy']*100:.0f}%</span><small>Walk-fwd</small></div>
+        </div>
+    </div>
+    """)
+    st.caption(
+        f"Probability shown is of the stated direction ({prob_label}), from a single Random "
+        f"Forest fit on {sessions} sessions of {st.session_state['ticker']} daily data. "
+        "Accuracy / vs baseline / walk-fwd describe historical model quality, not this call."
+    )
+
+
+def render_minimal_pinned_strip():
+    """Pinned stocks with realtime pin/unpin toggles."""
+    pinned = st.session_state["pinned_companies"]
+    st.html("<div class='bb-section-label'>Pinned</div>")
+
+    if not pinned:
+        st.caption("Nothing pinned yet — use the Pin button above.")
+        return
+
+    for row_start in range(0, len(pinned), 4):
+        cols = st.columns(4)
+        for j, sym in enumerate(pinned[row_start:row_start + 4]):
+            with cols[j]:
+                q = load_real_quote(sym)
+                is_active = sym == st.session_state["ticker"]
+                chg = q.get("day_change_pct") or 0.0
+                cls = "bb-tile-active" if is_active else ""
+                st.html(f"""
+                <div class="bb-tile {cls}">
+                    <div class="bb-tile-sym">{sym.replace('.NS', '')}</div>
+                    <div class="bb-tile-price">₹{q.get('price', 0):,.0f}
+                        <span class="{'bb-up' if chg >= 0 else 'bb-down'}">{chg:+.2f}%</span>
+                    </div>
+                </div>
+                """)
+                b1, b2 = st.columns([3, 1])
+                with b1:
+                    if st.button("Open", key=f"tile_open_{sym}", use_container_width=True,
+                                 disabled=is_active):
+                        set_active_stock(sym)
+                        st.rerun()
+                with b2:
+                    if st.button("✕", key=f"tile_unpin_{sym}", use_container_width=True,
+                                 help=f"Unpin {sym}"):
+                        toggle_pin_stock(sym)
+                        st.rerun()
 
 
 def render_watchlist_cards():
@@ -1711,33 +2336,8 @@ def render_performance_stats(quote: dict):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SIDEBAR NAVIGATION
+# SIDEBAR
 # ─────────────────────────────────────────────────────────────────────────────
-NAV_ITEMS = [
-    "1. Home",
-    "2. Saved Stocks",
-    "3. Settings",
-]
-
-NAV_LABELS = {
-    "1. Home":         ":material/space_dashboard: Home",
-    "2. Saved Stocks": ":material/bookmark: Saved stocks",
-    "3. Settings":     ":material/settings: Settings",
-}
-
-# Handle quick-action navigation redirects
-if "_nav_target" in st.session_state:
-    _target = st.session_state.pop("_nav_target")
-    # Map target string to nav item
-    _nav_map = {v.split(". ", 1)[1]: v for v in NAV_ITEMS}
-    # Try direct match
-    _matched = None
-    for k, v in _nav_map.items():
-        if k in _target or _target in v:
-            _matched = v
-            break
-    if _matched:
-        st.session_state["_forced_page"] = _matched
 
 with st.sidebar:
     # Header
@@ -1750,56 +2350,20 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Sanitize sidebar_nav if an old / removed page is currently selected
-    if "sidebar_nav" in st.session_state and st.session_state["sidebar_nav"] not in NAV_ITEMS:
-        st.session_state["sidebar_nav"] = NAV_ITEMS[0]
-
-    default_page_idx = 0
-    if "_forced_page" in st.session_state:
-        forced = st.session_state.pop("_forced_page")
-        if forced in NAV_ITEMS:
-            default_page_idx = NAV_ITEMS.index(forced)
-
-    selected_page = st.radio(
-        "Navigation",
-        NAV_ITEMS,
-        format_func=lambda x: NAV_LABELS.get(x, x),
-        index=default_page_idx,
-        label_visibility="collapsed",
-        key="sidebar_nav"
-    )
-
     st.write("")
-    st.caption("Search market")
-    sidebar_search = st.text_input(
-        "Sidebar search",
-        placeholder="e.g. Tata Motors, Reliance…",
-        key="sidebar_search_input",
-        label_visibility="collapsed"
-    )
-    if sidebar_search and len(sidebar_search) >= 2:
-        matches = search_companies(sidebar_search)
-        if matches:
-            opts = [f"{m['symbol']} — {m['name']}" for m in matches[:6]]
-            chosen = st.selectbox("Matches", opts, key="sb_search_select", label_visibility="collapsed")
-            if st.button("Open", type="primary", key="sb_search_open", use_container_width=True):
-                set_active_stock(chosen.split(" — ")[0])
-                st.rerun()
-        else:
-            st.caption("No matches.")
-
-    # Popular stocks selector
+    st.caption("Popular stocks")
     popular_syms = [c["symbol"] for c in POPULAR_NSE_COMPANIES]
     cur_tick = st.session_state["ticker"]
+    # No widget key: the dropdown is a pure view of st.session_state["ticker"], so a
+    # story-card / search switch is never snapped back by a stale widget value.
     sel_idx = popular_syms.index(cur_tick) if cur_tick in popular_syms else 0
     chosen_pop = st.selectbox(
         "Active stock",
         popular_syms,
         index=sel_idx,
-        key="sb_popular_sel",
         label_visibility="visible"
     )
-    if chosen_pop != st.session_state["ticker"] and not sidebar_search:
+    if chosen_pop != st.session_state["ticker"]:
         set_active_stock(chosen_pop)
         st.rerun()
 
@@ -1857,582 +2421,179 @@ with st.sidebar:
 
 
 # =============================================================================
-# PAGE 1: HOME / DASHBOARD
+# MAIN PAGE (Home/Dashboard - navigation removed)
 # =============================================================================
+selected_page = "1. Home"  # Always show Home page since navigation is removed
+
 if selected_page == "1. Home":
-    render_market_header()
-    render_market_indices_ribbon()
+    # Search / pin / unpin live in the sidebar — main canvas shows prediction only.
+    render_stories_row()
     st.write("")
 
-    render_search_bar()
-    st.write("")
-
-    # Load quote for active stock
     active_q = load_real_quote(st.session_state["ticker"])
-    render_stock_info_card(active_q)
-    st.write("")
 
-    # Prediction control bar
-    pred_mode = render_prediction_control_bar()
-    st.write("")
+    # ── Prediction only ────────────────────────────────────────────────
+    with st.spinner("Predicting…"):
+        bundle = get_daily_model_pipeline(
+            st.session_state["ticker"],
+            st.session_state["daily_df"],
+            st.session_state["horizon"],
+        )
+    next_week_pack = get_next_week_bias(st.session_state["ticker"])
 
-    # Main content: chart + prediction panel (3:2)
-    col_main, col_right = st.columns([3, 2])
+    if not bundle.get("valid", False):
+        st.error(f"Prediction unavailable: {bundle.get('error')}")
+    else:
+        render_minimal_prediction(bundle["latest_pred"], bundle["results"], active_q, next_week_pack)
 
-    with col_main:
-        # Chart
-        with st.container(border=True):
-            ch1, ch2 = st.columns([3, 2])
-            with ch1:
-                st.subheader("Price chart", icon=":material/stacked_line_chart:")
-            with ch2:
-                chart_type = st.segmented_control(
-                    "Chart type", ["Candlestick", "Line"],
-                    default=st.session_state.get("chart_type", "Candlestick"),
-                    key="chart_type_sel",
-                    label_visibility="collapsed"
-                )
-                if chart_type:
-                    st.session_state["chart_type"] = chart_type
-
-            chart_df = filter_df_by_time_range(
-                st.session_state["daily_df"],
-                st.session_state.get("chart_time_filter", "1Y")
-            )
-
-            # Determine if forecast available
-            forecast_df_to_show = None
-            if pred_mode in ["Next Day", "5 Days"] and "kronos_result" in st.session_state:
-                kr = st.session_state.get("kronos_result")
-                if kr and kr.get("status") == "ok":
-                    forecast_df_to_show = kr.get("forecast_df")
-
-            if st.session_state.get("chart_type", "Candlestick") == "Candlestick":
-                fig_chart = build_candlestick_chart(chart_df, height=460, show_volume=True, forecast_df=forecast_df_to_show)
-            else:
-                fig_chart = build_line_chart(chart_df, height=460)
-
-            st.plotly_chart(fig_chart, use_container_width=True)
-
-        # Lower row: intraday + pattern side by side
-        lo1, lo2 = st.columns(2)
-        with lo1:
-            render_intraday_compact_card(st.session_state["intraday_df"])
-        with lo2:
-            render_pattern_compact_card(st.session_state["daily_df"])
-
-    with col_right:
-        # Run pipeline to get prediction
-        with st.spinner("Running AI prediction…"):
-            bundle = get_daily_model_pipeline(
-                st.session_state["ticker"],
-                st.session_state["daily_df"],
-                st.session_state["horizon"]
-            )
-
-        if bundle.get("valid", False):
-            render_prediction_panel(bundle["latest_pred"], bundle["results"], active_q)
-            st.write("")
-            render_history_and_nextweek_card(st.session_state["ticker"], years=5)
-            st.write("")
-            render_key_info_card(bundle["latest_pred"], bundle["results"], bundle["clean_df"])
-            st.write("")
-            render_quick_actions()
-        else:
-            st.error(f"Prediction error: {bundle.get('error')}")
-            render_quick_actions()
-
-    st.write("")
-    render_watchlist_cards()
-
-    # ─── Deep-dive analytics (collapsible, triggered from Quick Actions) ──────
-    if st.session_state.pop("expand_deep_dive", False):
-        st.session_state["_show_deep_dive"] = True
-
-    if st.session_state.get("_show_deep_dive", False):
+    # ── Future prediction graph for the story the user opened ───────────────
+    graph_sym = st.session_state.get("graph_ticker")
+    if graph_sym:
         st.write("")
-        st.divider()
-        with st.expander("🔬 Deep-dive analytics & AI models — click to collapse", expanded=True):
-            if st.button("✕ Close deep-dive", key="close_deep_dive", type="secondary"):
-                st.session_state["_show_deep_dive"] = False
-                st.rerun()
-
-            # ── Tabs for all removed pages ──────────────────────────────────
-            ddtab1, ddtab2, ddtab3, ddtab4, ddtab5, ddtab6 = st.tabs([
-                "📈 5-Day Forecast",
-                "⏱ Intraday (15m)",
-                "📅 Pattern Finder",
-                "⚡ Buy/Sell Timing",
-                "📊 Backtesting",
-                "💾 Results & Power BI",
-            ])
-
-            # ── Tab 1: 5-Day Forecast ─────────────────────────────────────
-            with ddtab1:
-                active_q2 = load_real_quote(st.session_state["ticker"])
-                st.subheader(f"Directional forecast · {active_q2['name']}", divider="blue")
-                st.caption("Dual-engine: Random Forest technical classifier + Kronos financial foundation model.")
-
-                pred_hor = st.segmented_control(
-                    "Forecast horizon",
-                    ["Next trading day (1 session)", "Next 5 trading days (1 week)"],
-                    default="Next 5 trading days (1 week)" if st.session_state["horizon"] == 5 else "Next trading day (1 session)",
-                    key="dd_predict_hor_ctrl"
-                )
-                horizon_val = 5 if "5" in pred_hor else 1
-                st.session_state["horizon"] = horizon_val
-
-                tab_rf2, tab_kronos2 = st.tabs([
-                    "🌲 Random forest · Technical AI",
-                    "🔬 Kronos · Foundation model (OHLCV)"
-                ])
-
-                with tab_rf2:
-                    with st.spinner("Running Random Forest pipeline…"):
-                        bundle2 = get_daily_model_pipeline(
-                            st.session_state["ticker"],
-                            st.session_state["daily_df"],
-                            horizon_val
-                        )
-                    if bundle2.get("valid", False):
-                        lp2 = bundle2["latest_pred"]
-                        res2 = bundle2["results"]
-                        metrics2 = res2["test_metrics"]
-                        clean_df2 = bundle2["clean_df"]
-                        feature_cols2 = bundle2["feature_cols"]
-                        p_dir2 = lp2["predicted_direction"]
-                        p_up2 = lp2["probability_up"] * 100.0
-                        p_down2 = lp2["probability_down"] * 100.0
-                        is_up2 = p_dir2 == "UP"
-                        dir_col2 = "#10B981" if is_up2 else "#EF4444"
-                        card_cls2 = "pred-up" if is_up2 else "pred-down"
-                        cfc1, cfc2 = st.columns([3, 2])
-                        with cfc1:
-                            st.markdown(f"""
-                            <div class="{card_cls2}">
-                                <div style="font-size:0.85rem;font-weight:700;color:{dir_col2}">
-                                    {'▲' if is_up2 else '▼'} PREDICTED DIRECTION: {p_dir2}
-                                </div>
-                                <div style="font-size:1.8rem;font-weight:900;color:{dir_col2}">{p_up2:.1f}% UP</div>
-                                <div style="font-size:0.78rem;color:#94A3B8;">{p_down2:.1f}% DOWN · {horizon_val}-day horizon</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            render_5day_trajectory_card(clean_df2, feature_cols2, res2["model"])
-                        with cfc2:
-                            m1d, m2d, m3d = st.columns(3)
-                            with m1d:
-                                st.metric("Accuracy", f"{metrics2['accuracy']*100:.1f}%", border=True)
-                            with m2d:
-                                st.metric("Baseline", f"{metrics2['baseline_accuracy']*100:.1f}%", border=True)
-                            with m3d:
-                                st.metric("F1", f"{metrics2['f1_score']*100:.1f}%", border=True)
-                            render_feature_importance_card(res2["feature_importance"])
-                    else:
-                        st.error(f"Forecast error: {bundle2.get('error')}")
-
-                with tab_kronos2:
-                    with st.spinner("Running Kronos foundation model…"):
-                        k_result2 = run_kronos_prediction(st.session_state["ticker"])
-                    if k_result2.get("status") == "ok":
-                        k_fdf2 = k_result2["forecast_df"]
-                        k_pct2 = k_result2.get("5day_return_pct", 0.0)
-                        k_dir2 = k_result2.get("5day_direction", "—")
-                        k_sign2 = "+" if k_pct2 >= 0 else ""
-                        km1, km2, km3 = st.columns(3)
-                        with km1:
-                            st.metric("Kronos direction", k_dir2, border=True)
-                        with km2:
-                            st.metric("Expected 5-day return", f"{k_sign2}{k_pct2:.2f}%", border=True)
-                        with km3:
-                            st.metric("Projected close", f"₹{k_fdf2['close'].iloc[-1]:,.2f}", f"{k_sign2}{k_pct2:.2f}%", border=True)
-                        with st.container(border=True):
-                            st.subheader("Historical + Kronos forecast chart", icon=":material/stacked_line_chart:")
-                            daily_plot2 = st.session_state["daily_df"].tail(120).copy()
-                            fig_k2 = build_candlestick_chart(daily_plot2, height=440, show_volume=False, forecast_df=k_fdf2)
-                            st.plotly_chart(fig_k2, use_container_width=True)
-                    else:
-                        st.error(f"Kronos failed: {k_result2.get('message', 'Unknown error')}")
-
-            # ── Tab 2: Intraday ───────────────────────────────────────────
-            with ddtab2:
-                active_q3 = load_real_quote(st.session_state["ticker"])
-                st.subheader(f"Intraday analysis · {active_q3['name']}", divider="blue")
-                st.caption("15-minute candlestick analysis, VWAP, EMA, and time-of-day patterns (09:15–15:30 IST).")
-                intra_df2 = st.session_state["intraday_df"]
-                intra_res2 = train_and_predict_intraday(intra_df2)
-                if intra_res2.get("valid", False):
-                    df_feat2 = intra_res2["df_with_features"]
-                    im1, im2, im3, im4 = st.columns(4)
-                    with im1:
-                        st.metric("Latest close", f"₹{intra_res2['latest_close']:,.2f}", border=True)
-                    with im2:
-                        st.metric("Next candle", intra_res2["predicted_direction"],
-                                  f"{intra_res2['probability_up']*100:.0f}% UP", border=True)
-                    with im3:
-                        st.metric("Test accuracy", f"{intra_res2['test_accuracy']:.1f}%", border=True)
-                    with im4:
-                        st.metric("Bars", len(df_feat2), border=True)
-                    with st.container(border=True):
-                        st.subheader("15-minute OHLCV + VWAP", icon=":material/candlestick_chart:")
-                        fig_id2 = go.Figure()
-                        fig_id2.add_trace(go.Candlestick(
-                            x=pd.to_datetime(df_feat2["Timestamp"]),
-                            open=df_feat2["Open"], high=df_feat2["High"],
-                            low=df_feat2["Low"], close=df_feat2["Close"],
-                            name="15m",
-                            increasing=dict(line=dict(color="#10B981"), fillcolor="#10B981"),
-                            decreasing=dict(line=dict(color="#EF4444"), fillcolor="#EF4444"),
-                            showlegend=False,
-                        ))
-                        if "VWAP" in df_feat2.columns:
-                            fig_id2.add_trace(go.Scatter(
-                                x=pd.to_datetime(df_feat2["Timestamp"]),
-                                y=df_feat2["VWAP"], mode="lines",
-                                name="VWAP", line=dict(color="#F59E0B", width=1.5)
-                            ))
-                        fig_id2.update_layout(
-                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                            height=380, margin=dict(l=5, r=5, t=5, b=5),
-                            xaxis_rangeslider_visible=False,
-                            xaxis=dict(showgrid=True, gridcolor="rgba(51,65,85,0.5)"),
-                            yaxis=dict(showgrid=True, gridcolor="rgba(51,65,85,0.5)"),
-                        )
-                        st.plotly_chart(fig_id2, use_container_width=True)
-                    try:
-                        tod_df = analyze_intraday_time_of_day(intra_df2)
-                        if not tod_df.empty:
-                            with st.container(border=True):
-                                st.subheader("Time-of-day return distribution", icon=":material/schedule:")
-                                fig_tod = px.bar(
-                                    tod_df, x="Time_Interval", y="Mean_Return_Pct",
-                                    color="Mean_Return_Pct",
-                                    color_continuous_scale=[[0, "#EF4444"], [0.5, "#64748B"], [1, "#10B981"]]
-                                )
-                                apply_chart_theme(fig_tod, height=260)
-                                fig_tod.update_layout(coloraxis_showscale=False)
-                                st.plotly_chart(fig_tod, use_container_width=True)
-                    except Exception:
-                        pass
-                else:
-                    st.info("Intraday data unavailable for this stock. NSE intraday feeds have limited lookback.", icon=":material/info:")
-
-            # ── Tab 3: Pattern Finder ─────────────────────────────────────
-            with ddtab3:
-                active_q4 = load_real_quote(st.session_state["ticker"])
-                st.subheader(f"Pattern finder · {active_q4['name']}", divider="blue")
-                st.caption("Historical recurring patterns: day of week, calendar date, monthly seasonality, annual regimes, and festivals.")
-                daily_df2 = st.session_state["daily_df"]
-                tab_dow2, tab_dom2, tab_month2, tab_year2, tab_fest2 = st.tabs([
-                    "Weekday", "Calendar date (1–31)", "Monthly seasonality", "Annual regimes", "🪔 Festivals & Events"
-                ])
-                with tab_dow2:
-                    with st.container(border=True):
-                        st.subheader("Day of week return distribution (Mon–Fri)", icon=":material/today:")
-                        dow_df2 = analyze_day_of_week(daily_df2)
-                        pc1, pc2 = st.columns([3, 2])
-                        with pc1:
-                            fig_dow2 = px.bar(dow_df2, x="Day", y="Mean_Return_Pct", color="Mean_Return_Pct",
-                                              color_continuous_scale=[[0, "#EF4444"], [0.5, "#64748B"], [1, "#10B981"]])
-                            apply_chart_theme(fig_dow2, height=280)
-                            fig_dow2.update_layout(coloraxis_showscale=False)
-                            st.plotly_chart(fig_dow2, use_container_width=True)
-                        with pc2:
-                            st.dataframe(dow_df2, hide_index=True, use_container_width=True)
-                with tab_dom2:
-                    with st.container(border=True):
-                        st.subheader("Calendar date (1–31) repeat patterns", icon=":material/calendar_today:")
-                        dom_df2 = analyze_day_of_month_repeat(daily_df2)
-                        if not dom_df2.empty:
-                            fig_dom2 = px.bar(dom_df2, x="Day_Of_Month", y="Mean_Return_Pct", color="Mean_Return_Pct",
-                                              color_continuous_scale=[[0, "#EF4444"], [0.5, "#64748B"], [1, "#10B981"]])
-                            apply_chart_theme(fig_dom2, height=260)
-                            fig_dom2.update_layout(coloraxis_showscale=False)
-                            st.plotly_chart(fig_dom2, use_container_width=True)
-                with tab_month2:
-                    with st.container(border=True):
-                        st.subheader("Monthly seasonality", icon=":material/calendar_month:")
-                        month_df2 = analyze_month_seasonality(daily_df2)
-                        if not month_df2.empty:
-                            fig_mo2 = px.bar(month_df2, x="Month", y="Mean_Return_Pct", color="Mean_Return_Pct",
-                                             color_continuous_scale=[[0, "#EF4444"], [0.5, "#64748B"], [1, "#10B981"]])
-                            apply_chart_theme(fig_mo2, height=260)
-                            fig_mo2.update_layout(coloraxis_showscale=False)
-                            st.plotly_chart(fig_mo2, use_container_width=True)
-                            st.dataframe(month_df2, hide_index=True, use_container_width=True)
-                with tab_year2:
-                    with st.container(border=True):
-                        st.subheader("Annual regime performance", icon=":material/bar_chart:")
-                        yr_df2 = analyze_year_performance(daily_df2)
-                        if not yr_df2.empty:
-                            fig_yr2 = px.bar(yr_df2, x="Year", y="Annual_Return_Pct", color="Annual_Return_Pct",
-                                             color_continuous_scale=[[0, "#EF4444"], [0.5, "#64748B"], [1, "#10B981"]])
-                            apply_chart_theme(fig_yr2, height=260)
-                            fig_yr2.update_layout(coloraxis_showscale=False)
-                            st.plotly_chart(fig_yr2, use_container_width=True)
-                with tab_fest2:
-                    with st.container(border=True):
-                        st.subheader("Festival & macro calendar cycles", icon=":material/celebration:")
-                        fest_df2 = analyze_special_events_and_festivals(daily_df2)
-                        if not fest_df2.empty:
-                            st.dataframe(fest_df2, hide_index=True, use_container_width=True)
-
-            # ── Tab 4: Buy/Sell Timing ────────────────────────────────────
-            with ddtab4:
-                active_q5 = load_real_quote(st.session_state["ticker"])
-                st.subheader(f"Buy/sell timing research · {active_q5['name']}", divider="blue")
-                st.caption("Disciplined ATR-based profit targets and stop-loss bounds. Educational research only.")
-                with st.spinner("Running timing analysis…"):
-                    bundle5 = get_daily_model_pipeline(
-                        st.session_state["ticker"],
-                        st.session_state["daily_df"],
-                        st.session_state["horizon"]
-                    )
-                if bundle5.get("valid", False):
-                    timing5 = bundle5["timing_sig"]
-                    sig5 = timing5["signal"]
-                    if sig5 == "Potential Buy":
-                        card_cls5, sig_col5, arrow5 = "pred-up", "#10B981", "▲"
-                    elif sig5 == "Potential Sell":
-                        card_cls5, sig_col5, arrow5 = "pred-down", "#EF4444", "▼"
-                    else:
-                        card_cls5, sig_col5, arrow5 = "pred-neutral", "#F59E0B", "→"
-                    st.markdown(f"""
-                    <div class="{card_cls5}">
-                        <div style="font-size:0.8rem;font-weight:700;color:{sig_col5}">{arrow5} {sig5.upper()}</div>
-                        <div style="font-size:1.5rem;font-weight:900;color:{sig_col5}">{sig5}</div>
-                    </div>""", unsafe_allow_html=True)
-                    tc1, tc2, tc3, tc4 = st.columns(4)
-                    with tc1:
-                        st.metric("Entry price", f"₹{timing5['entry_price']:,.2f}", border=True)
-                    with tc2:
-                        st.metric("Target", f"₹{timing5['target_price']:,.2f}", border=True)
-                    with tc3:
-                        st.metric("Stop loss", f"₹{timing5['stop_loss']:,.2f}", border=True)
-                    with tc4:
-                        rr = timing5.get("risk_reward_ratio")
-                        st.metric("Risk/reward", f"{rr:.2f}" if rr else "N/A", border=True)
-                else:
-                    st.error(f"Timing analysis failed: {bundle5.get('error')}")
-
-            # ── Tab 5: Backtesting ────────────────────────────────────────
-            with ddtab5:
-                active_q6 = load_real_quote(st.session_state["ticker"])
-                st.subheader(f"Backtesting & accuracy · {active_q6['name']}", divider="blue")
-                st.caption("Chronological holdout (80/20) and expanding walk-forward validation. All predictions are out-of-sample.")
-                with st.spinner("Computing walk-forward backtest…"):
-                    bundle6 = get_daily_model_pipeline(
-                        st.session_state["ticker"],
-                        st.session_state["daily_df"],
-                        st.session_state["horizon"]
-                    )
-                if bundle6.get("valid", False):
-                    res6 = bundle6["results"]
-                    metrics6 = res6["test_metrics"]
-                    wf_df6 = res6["walk_forward_df"]
-                    bm1, bm2, bm3, bm4, bm5 = st.columns(5)
-                    with bm1:
-                        st.metric("Holdout accuracy", f"{metrics6['accuracy']*100:.1f}%",
-                                  f"+{(metrics6['accuracy']-metrics6['baseline_accuracy'])*100:.1f}% vs baseline", border=True)
-                    with bm2:
-                        st.metric("Baseline accuracy", f"{metrics6['baseline_accuracy']*100:.1f}%", border=True)
-                    with bm3:
-                        st.metric("Balanced accuracy", f"{metrics6['balanced_accuracy']*100:.1f}%", border=True)
-                    with bm4:
-                        st.metric("Precision (UP)", f"{metrics6['precision']*100:.1f}%", border=True)
-                    with bm5:
-                        st.metric("F1-Score", f"{metrics6['f1_score']*100:.1f}%", border=True)
-                    if wf_df6 is not None and not wf_df6.empty:
-                        with st.container(border=True):
-                            st.subheader("Walk-forward fold results", icon=":material/history:")
-                            st.dataframe(wf_df6, hide_index=True, use_container_width=True)
-                else:
-                    st.error(f"Backtest failed: {bundle6.get('error')}")
-
-            # ── Tab 6: Results & Power BI ─────────────────────────────────
-            with ddtab6:
-                st.subheader("Results export & Power BI integration", divider="blue")
-                st.caption("Download standardized CSV datasets formatted for Power BI Desktop.")
-                with st.container(border=True):
-                    st.subheader("One-click Power BI bundle", icon=":material/folder_zip:")
-                    st.caption("Download all CSVs in a single ZIP file ready to import into Power BI.")
-                    try:
-                        zip_data2 = create_powerbi_zip_bundle()
-                        st.download_button(
-                            "Download Power BI CSV bundle (.zip)",
-                            zip_data2,
-                            file_name=f"bigbull_powerbi_{st.session_state['ticker']}.zip",
-                            mime="application/zip",
-                            type="primary",
-                            icon=":material/download:",
-                            key="dd_zip_download"
-                        )
-                    except OSError:
-                        st.info("No export files found yet. Run a prediction to generate them.")
-                with st.container(border=True):
-                    st.subheader("Individual output datasets", icon=":material/description:")
-                    file_list6 = [
-                        ("historical_prices.csv", "Real historical daily OHLCV prices"),
-                        ("daily_predictions.csv", "1-day directional forecast"),
-                        ("five_day_predictions.csv", "5-day directional forecast"),
-                        ("intraday_patterns.csv", "Intraday direction predictions"),
-                        ("timing_signals.csv", "Buy/Sell timing research signals"),
-                        ("historical_patterns.csv", "Day of week & monthly seasonality"),
-                        ("backtest_results.csv", "Holdout predictions & actual outcomes"),
-                        ("model_metrics.csv", "Model vs baseline accuracy scorecard"),
-                    ]
-                    for fname6, desc6 in file_list6:
-                        fpath6 = os.path.join(EXPORTS_DIR, fname6)
-                        fpath6_alt = os.path.join(OUTPUTS_DIR, fname6)
-                        actual_path6 = fpath6 if os.path.exists(fpath6) else fpath6_alt
-                        ca6, cb6 = st.columns([4, 1])
-                        with ca6:
-                            exists6 = os.path.exists(actual_path6)
-                            badge6 = ":green-badge[Available]" if exists6 else ":orange-badge[Run export first]"
-                            st.markdown(f"**`{fname6}`** {badge6}  \n*{desc6}*")
-                        with cb6:
-                            if os.path.exists(actual_path6):
-                                with open(actual_path6, "rb") as f6:
-                                    st.download_button(
-                                        "Download",
-                                        f6.read(), fname6, "text/csv",
-                                        key=f"dd_dl_{fname6}",
-                                        icon=":material/download:"
-                                    )
+        with st.container(border=True):
+            gh, gc2 = st.columns([5, 1])
+            with gh:
+                st.subheader(f"Future prediction · {graph_sym.replace('.NS', '')}", icon=":material/show_chart:")
+            with gc2:
+                if st.button("✕ Close", key="close_graph_btn", use_container_width=True):
+                    st.session_state["graph_ticker"] = None
+                    st.rerun()
+            render_future_prediction_graph(graph_sym)
 
 
 # =============================================================================
-# PAGE 2: SAVED STOCKS
+# PAGE 2: SAVED STOCKS (removed - navigation disabled)
 # =============================================================================
-elif selected_page == "2. Saved Stocks":
-    st.title("Saved stocks", icon=":material/bookmark:")
-    st.caption("Your bookmarked stocks and pinned watchlist. Click any row to open full analysis.")
-
-    favs = st.session_state.get("favourites", [])
-    pinned = st.session_state.get("pinned_companies", [])
-
-    tab_fav, tab_watchlist, tab_all = st.tabs([
-        "★ Favourites",
-        "📌 Pinned watchlist",
-        "🌐 All stocks board"
-    ])
-
-    with tab_fav:
-        st.subheader("Bookmarked stocks", icon=":material/bookmark:")
-        if not favs:
-            st.info("No favourites saved yet. Search for a stock and click 'Save ☆' to bookmark it.", icon=":material/info:")
-        else:
-            fav_rows = []
-            for sym in favs:
-                q = load_real_quote(sym)
-                sign = "+" if q["day_change"] >= 0 else ""
-                fav_rows.append({
-                    "Symbol": q["clean_symbol"],
-                    "Company": q["name"],
-                    "Price (₹)": f"₹{q['price']:,.2f}",
-                    "Day Change": f"{sign}{q['day_change_pct']:.2f}%",
-                    "Day High": f"₹{q['day_high']:,.2f}",
-                    "Day Low": f"₹{q['day_low']:,.2f}",
-                })
-            fav_df = pd.DataFrame(fav_rows)
-            st.dataframe(fav_df, hide_index=True, use_container_width=True)
-
-            st.write("")
-            sel_fav, btn_open, btn_rm = st.columns([3, 1, 1])
-            with sel_fav:
-                open_sym = st.selectbox("Select to open or remove", favs, key="fav_sel")
-            with btn_open:
-                st.write("")
-                if st.button("Open stock", type="primary", key="fav_open", icon=":material/open_in_browser:"):
-                    set_active_stock(open_sym)
-                    st.session_state["_forced_page"] = "1. Home"
-                    st.rerun()
-            with btn_rm:
-                st.write("")
-                if st.button("Remove", key="fav_remove", icon=":material/bookmark_remove:"):
-                    toggle_favourite(open_sym)
-                    st.rerun()
-
-    with tab_watchlist:
-        st.subheader("Pinned watchlist comparison", icon=":material/compare_arrows:")
-        st.caption("Side-by-side ML conviction, returns, and performance for pinned stocks.")
-        if not pinned:
-            st.info("Pin stocks from the sidebar or search to start comparing.", icon=":material/info:")
-        else:
-            compare_rows = []
-            hist_series = {}
-            for sym in pinned:
-                q = load_real_quote(sym)
-                try:
-                    df_sym = load_real_daily_data(sym)
-                    pb = get_daily_model_pipeline(sym, df_sym, st.session_state["horizon"])
-                    if pb.get("valid"):
-                        pp = pb["latest_pred"]
-                        res = pb["results"]
-                        rf = pp.get("rf_detection", {})
-                        reg = rf.get("market_regime", {}).get("badge", "Active")
-                        dir_str = f"▲ UP ({pp['probability_up']*100:.1f}%)" if pp["predicted_direction"] == "UP" else f"▼ DOWN ({pp['probability_down']*100:.1f}%)"
-                        acc_str = f"{res['test_metrics']['accuracy']*100:.1f}%"
-                    else:
-                        dir_str, acc_str, reg = "N/A", "N/A", "—"
-                    if not df_sym.empty:
-                        hist_series[sym] = df_sym.set_index("Date")["Close"]
-                except Exception:
-                    dir_str, acc_str, reg = "N/A", "N/A", "—"
-
-                sign = "+" if q["day_change"] >= 0 else ""
-                compare_rows.append({
-                    "Stock": sym.replace(".NS", ""),
-                    "Company": q["name"],
-                    "Price (₹)": f"₹{q['price']:,.2f}",
-                    "Day Change": f"{sign}{q['day_change_pct']:.2f}%",
-                    f"{st.session_state['horizon']}D Forecast": dir_str,
-                    "Accuracy": acc_str,
-                    "Regime": reg,
-                })
-
-            st.dataframe(pd.DataFrame(compare_rows), hide_index=True, use_container_width=True)
-
-            if len(hist_series) > 1:
-                with st.container(border=True):
-                    st.subheader("Normalized return comparison", icon=":material/multiline_chart:")
-                    comp_df = pd.DataFrame(hist_series).dropna()
-                    if not comp_df.empty:
-                        norm_df = (comp_df / comp_df.iloc[0]) * 100.0 - 100.0
-                        fig_n = go.Figure()
-                        palette = ["#3B82F6", "#10B981", "#8B5CF6"]
-                        for idx, col in enumerate(norm_df.columns):
-                            fig_n.add_trace(go.Scatter(
-                                x=pd.to_datetime(norm_df.index), y=norm_df[col],
-                                mode="lines", name=col.replace(".NS", ""),
-                                line=dict(color=palette[idx % len(palette)], width=2)
-                            ))
-                        apply_chart_theme(fig_n, height=320)
-                        st.plotly_chart(fig_n, use_container_width=True)
-
-    with tab_all:
-        st.subheader("Market board — all stocks", icon=":material/grid_on:")
-        board_df = load_all_companies_board()
-        if not board_df.empty:
-            st.dataframe(board_df, hide_index=True, use_container_width=True)
-            sel_col, open_col, pin_col = st.columns([3, 1, 1])
-            with sel_col:
-                board_sym = st.selectbox("Select stock", list(board_df["Ticker"]), key="board_sel")
-            with open_col:
-                st.write("")
-                if st.button("Open", type="primary", key="board_open", icon=":material/open_in_browser:"):
-                    set_active_stock(board_sym)
-                    st.session_state["_forced_page"] = "1. Home"
-                    st.rerun()
-            with pin_col:
-                st.write("")
-                bp = board_sym in st.session_state["pinned_companies"]
-                if st.button("Unpin" if bp else "Pin", key="board_pin", icon=":material/push_pin:"):
-                    toggle_pin_stock(board_sym)
-                    st.rerun()
+# elif selected_page == "2. Saved Stocks":
+#     st.title("Saved stocks", icon=":material/bookmark:")
+#     st.caption("Your bookmarked stocks and pinned watchlist. Click any row to open full analysis.")
+# 
+#     favs = st.session_state.get("favourites", [])
+#     pinned = st.session_state.get("pinned_companies", [])
+# 
+#     tab_fav, tab_watchlist, tab_all = st.tabs([
+#         "★ Favourites",
+#         "📌 Pinned watchlist",
+#         "🌐 All stocks board"
+#     ])
+# 
+#     with tab_fav:
+#         st.subheader("Bookmarked stocks", icon=":material/bookmark:")
+#         if not favs:
+#             st.info("No favourites saved yet.", icon=":material/info:")
+#         else:
+#             fav_rows = []
+#             for sym in favs:
+#                 q = load_real_quote(sym)
+#                 sign = "+" if q["day_change"] >= 0 else ""
+#                 fav_rows.append({
+#                     "Symbol": q["clean_symbol"],
+#                     "Company": q["name"],
+#                     "Price (₹)": f"₹{q['price']:,.2f}",
+#                     "Day Change": f"{sign}{q['day_change_pct']:.2f}%",
+#                     "Day High": f"₹{q['day_high']:,.2f}",
+#                     "Day Low": f"₹{q['day_low']:,.2f}",
+#                 })
+#             fav_df = pd.DataFrame(fav_rows)
+#             st.dataframe(fav_df, hide_index=True, use_container_width=True)
+# 
+#             st.write("")
+#             sel_fav, btn_open, btn_rm = st.columns([3, 1, 1])
+#             with sel_fav:
+#                 open_sym = st.selectbox("Select to open or remove", favs, key="fav_sel")
+#             with btn_open:
+#                 st.write("")
+#                 if st.button("Open stock", type="primary", key="fav_open", icon=":material/open_in_browser:"):
+#                     set_active_stock(open_sym)
+#                     st.session_state["_forced_page"] = "1. Home"
+#                     st.rerun()
+#             with btn_rm:
+#                 st.write("")
+#                 if st.button("Remove", key="fav_remove", icon=":material/bookmark_remove:"):
+#                     toggle_favourite(open_sym)
+#                     st.rerun()
+# 
+#     with tab_watchlist:
+#         st.subheader("Pinned watchlist comparison", icon=":material/compare_arrows:")
+#         st.caption("Side-by-side ML conviction, returns, and performance for pinned stocks.")
+#         if not pinned:
+#             st.info("Pin stocks from the sidebar to start comparing.", icon=":material/info:")
+#         else:
+#             compare_rows = []
+#             hist_series = {}
+#             for sym in pinned:
+#                 q = load_real_quote(sym)
+#                 try:
+#                     df_sym = load_real_daily_data(sym)
+#                     pb = get_daily_model_pipeline(sym, df_sym, st.session_state["horizon"])
+#                     if pb.get("valid"):
+#                         pp = pb["latest_pred"]
+#                         res = pb["results"]
+#                         rf = pp.get("rf_detection", {})
+#                         reg = rf.get("market_regime", {}).get("badge", "Active")
+#                         dir_str = f"▲ UP ({pp['probability_up']*100:.1f}%)" if pp["predicted_direction"] == "UP" else f"▼ DOWN ({pp['probability_down']*100:.1f}%)"
+#                         acc_str = f"{res['test_metrics']['accuracy']*100:.1f}%"
+#                     else:
+#                         dir_str, acc_str, reg = "N/A", "N/A", "—"
+#                     if not df_sym.empty:
+#                         hist_series[sym] = df_sym.set_index("Date")["Close"]
+#                 except Exception:
+#                     dir_str, acc_str, reg = "N/A", "N/A", "—"
+# 
+#                 sign = "+" if q["day_change"] >= 0 else ""
+#                 compare_rows.append({
+#                     "Stock": sym.replace(".NS", ""),
+#                     "Company": q["name"],
+#                     "Price (₹)": f"₹{q['price']:,.2f}",
+#                     "Day Change": f"{sign}{q['day_change_pct']:.2f}%",
+#                     f"{st.session_state['horizon']}D Forecast": dir_str,
+#                     "Accuracy": acc_str,
+#                     "Regime": reg,
+#                 })
+# 
+#             st.dataframe(pd.DataFrame(compare_rows), hide_index=True, use_container_width=True)
+# 
+#             if len(hist_series) > 1:
+#                 with st.container(border=True):
+#                     st.subheader("Normalized return comparison", icon=":material/multiline_chart:")
+#                     comp_df = pd.DataFrame(hist_series).dropna()
+#                     if not comp_df.empty:
+#                         norm_df = (comp_df / comp_df.iloc[0]) * 100.0 - 100.0
+#                         fig_n = go.Figure()
+#                         palette = ["#3B82F6", "#10B981", "#8B5CF6"]
+#                         for idx, col in enumerate(norm_df.columns):
+#                             fig_n.add_trace(go.Scatter(
+#                                 x=pd.to_datetime(norm_df.index), y=norm_df[col],
+#                                 mode="lines", name=col.replace(".NS", ""),
+#                                 line=dict(color=palette[idx % len(palette)], width=2)
+#                             ))
+#                         apply_chart_theme(fig_n, height=320)
+#                         st.plotly_chart(fig_n, use_container_width=True)
+# 
+#     with tab_all:
+#         st.subheader("Market board — all stocks", icon=":material/grid_on:")
+#         board_df = load_all_companies_board()
+#         if not board_df.empty:
+#             st.dataframe(board_df, hide_index=True, use_container_width=True)
+#             sel_col, open_col, pin_col = st.columns([3, 1, 1])
+#             with sel_col:
+#                 board_sym = st.selectbox("Select stock", list(board_df["Ticker"]), key="board_sel")
+#             with open_col:
+#                 st.write("")
+#                 if st.button("Open", type="primary", key="board_open", icon=":material/open_in_browser:"):
+#                     set_active_stock(board_sym)
+#                     st.session_state["_forced_page"] = "1. Home"
+#                     st.rerun()
+#             with pin_col:
+#                 st.write("")
+#                 bp = board_sym in st.session_state["pinned_companies"]
+#                 if st.button("Unpin" if bp else "Pin", key="board_pin", icon=":material/push_pin:"):
+#                     toggle_pin_stock(board_sym)
+#                     st.rerun()
 
 
 # =============================================================================
-# PAGE 3-8: REMOVED FROM SIDEBAR (content merged into Home deep-dive section)
+# PAGE 3: SETTINGS (removed - navigation disabled)
 # =============================================================================
 elif selected_page == "_removed_predict_future":
     active_q = load_real_quote(st.session_state["ticker"])
@@ -3027,90 +3188,90 @@ elif selected_page == "_removed_results":
 
 
 # =============================================================================
-# PAGE 3: SETTINGS
+# PAGE 3: SETTINGS (removed - navigation disabled)
 # =============================================================================
-elif selected_page == "3. Settings":
-    st.title("Settings & preferences", icon=":material/settings:")
-
-    with st.container(border=True):
-        st.subheader("Data feeds & cache", icon=":material/database:")
-        st.markdown("- **Primary data engine:** Google Finance & NSE")
-        st.markdown(f"- **Active stock:** `{st.session_state['ticker']}`")
-        st.markdown(f"- **Pinned watchlist:** {', '.join(st.session_state['pinned_companies'])}")
-        st.markdown(f"- **Favourites:** {', '.join(st.session_state['favourites']) or 'None'}")
-
-        if st.button("Force clear cache & resync data", icon=":material/refresh:", key="settings_clear_cache"):
-            st.cache_data.clear()
-            st.session_state["daily_df"] = load_real_daily_data(st.session_state["ticker"])
-            st.session_state["intraday_df"] = load_real_intraday_data(st.session_state["ticker"])
-            st.session_state["model_cache"] = {}
-            st.toast("Data resynchronized!", icon=":material/check_circle:")
-            st.rerun()
-
-    with st.container(border=True):
-        st.subheader("Risk & cost parameters", icon=":material/tune:")
-        cost_input = st.number_input(
-            "Transaction cost & slippage (basis points):",
-            min_value=0.0, max_value=100.0,
-            value=float(st.session_state["cost_bps"]), step=1.0,
-            key="settings_cost_bps"
-        )
-        if cost_input != st.session_state["cost_bps"]:
-            st.session_state["cost_bps"] = cost_input
-            st.session_state["model_cache"] = {}
-            st.toast("Cost parameters updated.", icon=":material/check:")
-
-    with st.container(border=True):
-        st.subheader("Chart preferences", icon=":material/stacked_line_chart:")
-        chart_pref = st.segmented_control(
-            "Default chart type",
-            ["Candlestick", "Line"],
-            default=st.session_state.get("chart_type", "Candlestick"),
-            key="settings_chart_type"
-        )
-        if chart_pref:
-            st.session_state["chart_type"] = chart_pref
-
-    with st.container(border=True):
-        st.subheader("Model & data information", icon=":material/info:")
-        k_status = kronos_status()
-        st.markdown(f"- **Kronos model status:** `{k_status['status']}`")
-        if k_status.get("model"):
-            st.markdown(f"- **Kronos model:** `{k_status['model']}`")
-        st.markdown("- **Random Forest:** 100 trees · Walk-forward validated")
-        st.markdown("- **Data source:** yFinance / Google Finance (free, real historical data)")
-        st.markdown("- **All predictions are probabilistic estimates for educational research only.**")
-        st.markdown("- **No financial advice is provided or implied.**")
-
-    with st.container(border=True):
-        st.subheader("Upload custom stock data", icon=":material/upload_file:")
-        tab_d, tab_i = st.tabs(["Daily historical data", "Intraday data"])
-        with tab_d:
-            up_file = st.file_uploader("Upload (.csv, .xlsx)", type=["csv", "xlsx", "xls"], key="settings_upload_daily")
-            if up_file is not None:
-                try:
-                    df_up = pd.read_excel(up_file) if up_file.name.endswith((".xlsx", ".xls")) else pd.read_csv(up_file)
-                    is_valid, errs, warns, clean_df = validate_stock_dataframe(df_up, min_rows=40)
-                    if is_valid:
-                        st.success(f"Loaded {len(clean_df)} sessions from '{up_file.name}'.", icon=":material/check_circle:")
-                        st.session_state["daily_df"] = clean_df
-                        st.session_state["model_cache"] = {}
-                    else:
-                        for err in errs:
-                            st.error(err, icon=":material/error:")
-                except Exception as e:
-                    st.error(f"Failed to read file: {e}")
-        with tab_i:
-            up_intra = st.file_uploader("Upload intraday (.csv)", type=["csv"], key="settings_upload_intra")
-            if up_intra is not None:
-                try:
-                    df_in = pd.read_csv(up_intra)
-                    is_v, errs, warns, clean_in = validate_intraday_dataframe(df_in, min_bars=25)
-                    if is_v:
-                        st.success(f"Loaded {len(clean_in)} intraday bars.", icon=":material/check_circle:")
-                        st.session_state["intraday_df"] = clean_in
-                    else:
-                        for err in errs:
-                            st.error(err, icon=":material/error:")
-                except Exception as e:
-                    st.error(f"Failed to load: {e}")
+# elif selected_page == "3. Settings":
+#     st.title("Settings & preferences", icon=":material/settings:")
+# 
+#     with st.container(border=True):
+#         st.subheader("Data feeds & cache", icon=":material/database:")
+#         st.markdown("- **Primary data engine:** Google Finance & NSE")
+#         st.markdown(f"- **Active stock:** `{st.session_state['ticker']}`")
+#         st.markdown(f"- **Pinned watchlist:** {', '.join(st.session_state['pinned_companies'])}")
+#         st.markdown(f"- **Favourites:** {', '.join(st.session_state['favourites']) or 'None'}")
+# 
+#         if st.button("Force clear cache & resync data", icon=":material/refresh:", key="settings_clear_cache"):
+#             st.cache_data.clear()
+#             st.session_state["daily_df"] = load_real_daily_data(st.session_state["ticker"])
+#             st.session_state["intraday_df"] = load_real_intraday_data(st.session_state["ticker"])
+#             st.session_state["model_cache"] = {}
+#             st.toast("Data resynchronized!", icon=":material/check_circle:")
+#             st.rerun()
+# 
+#     with st.container(border=True):
+#         st.subheader("Risk & cost parameters", icon=":material/tune:")
+#         cost_input = st.number_input(
+#             "Transaction cost & slippage (basis points):",
+#             min_value=0.0, max_value=100.0,
+#             value=float(st.session_state["cost_bps"]), step=1.0,
+#             key="settings_cost_bps"
+#         )
+#         if cost_input != st.session_state["cost_bps"]:
+#             st.session_state["cost_bps"] = cost_input
+#             st.session_state["model_cache"] = {}
+#             st.toast("Cost parameters updated.", icon=":material/check:")
+# 
+#     with st.container(border=True):
+#         st.subheader("Chart preferences", icon=":material/stacked_line_chart:")
+#         chart_pref = st.segmented_control(
+#             "Default chart type",
+#             ["Candlestick", "Line"],
+#             default=st.session_state.get("chart_type", "Candlestick"),
+#             key="settings_chart_type"
+#         )
+#         if chart_pref:
+#             st.session_state["chart_type"] = chart_pref
+# 
+#     with st.container(border=True):
+#         st.subheader("Model & data information", icon=":material/info:")
+#         k_status = kronos_status()
+#         st.markdown(f"- **Kronos model status:** `{k_status['status']}`")
+#         if k_status.get("model"):
+#             st.markdown(f"- **Kronos model:** `{k_status['model']}`")
+#         st.markdown("- **Random Forest:** 100 trees · Walk-forward validated")
+#         st.markdown("- **Data source:** yFinance / Google Finance (free, real historical data)")
+#         st.markdown("- **All predictions are probabilistic estimates for educational research only.**")
+#         st.markdown("- **No financial advice is provided or implied.**")
+# 
+#     with st.container(border=True):
+#         st.subheader("Upload custom stock data", icon=":material/upload_file:")
+#         tab_d, tab_i = st.tabs(["Daily historical data", "Intraday data"])
+#         with tab_d:
+#             up_file = st.file_uploader("Upload (.csv, .xlsx)", type=["csv", "xlsx", "xls"], key="settings_upload_daily")
+#             if up_file is not None:
+#                 try:
+#                     df_up = pd.read_excel(up_file) if up_file.name.endswith((".xlsx", ".xls")) else pd.read_csv(up_file)
+#                     is_valid, errs, warns, clean_df = validate_stock_dataframe(df_up, min_rows=40)
+#                     if is_valid:
+#                         st.success(f"Loaded {len(clean_df)} sessions from '{up_file.name}'.", icon=":material/check_circle:")
+#                         st.session_state["daily_df"] = clean_df
+#                         st.session_state["model_cache"] = {}
+#                     else:
+#                         for err in errs:
+#                             st.error(err, icon=":material/error:")
+#                 except Exception as e:
+#                     st.error(f"Failed to read file: {e}")
+#         with tab_i:
+#             up_intra = st.file_uploader("Upload intraday (.csv)", type=["csv"], key="settings_upload_intra")
+#             if up_intra is not None:
+#                 try:
+#                     df_in = pd.read_csv(up_intra)
+#                     is_v, errs, warns, clean_in = validate_intraday_dataframe(df_in, min_bars=25)
+#                     if is_v:
+#                         st.success(f"Loaded {len(clean_in)} intraday bars.", icon=":material/check_circle:")
+#                         st.session_state["intraday_df"] = clean_in
+#                     else:
+#                         for err in errs:
+#                             st.error(err, icon=":material/error:")
+#                 except Exception as e:
+#                     st.error(f"Failed to load: {e}")

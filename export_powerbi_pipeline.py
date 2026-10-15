@@ -174,15 +174,17 @@ def run_complete_export_pipeline(
             sig_date = str(latest_pred["signal_date"])
             nxt_date = (pd.to_datetime(sig_date) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
             
-            # RF 1D entry
+            # RF 1D entry - use probability-based return estimate instead of hardcoded 1%
+            prob_up = latest_1d_pred["probability_up"]
+            prob_return_pct = (prob_up - 0.5) * 2.0  # Map probability to -1% to +1% range
             all_daily_predictions.append({
                 "Signal_Date": sig_date,
                 "Forecast_Date": nxt_date,
                 "Ticker": norm_sym,
                 "Clean_Symbol": clean_name,
                 "Current_Close": latest_pred["latest_close"],
-                "Predicted_Close": round(latest_pred["latest_close"] * (1.0 + (0.01 if latest_1d_pred["predicted_direction"] == "UP" else -0.01)), 2),
-                "Predicted_Return_Pct": round(1.0 if latest_1d_pred["predicted_direction"] == "UP" else -1.0, 2),
+                "Predicted_Close": round(latest_pred["latest_close"] * (1.0 + prob_return_pct / 100.0), 2),
+                "Predicted_Return_Pct": round(prob_return_pct, 2),
                 "Predicted_Direction": latest_1d_pred["predicted_direction"],
                 "Probability_UP": round(latest_1d_pred["probability_up"], 4),
                 "Probability_DOWN": round(latest_1d_pred["probability_down"], 4),

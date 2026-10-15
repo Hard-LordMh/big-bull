@@ -51,7 +51,7 @@ def test_find_similar_historical_setups():
 
 
 def test_analyze_day_of_month_repeat():
-    df = generate_synthetic_stock_data(num_days=150)
+    df = generate_synthetic_stock_data(num_days=400)  # Increased from 150 to ensure enough samples
     dom_df = analyze_day_of_month_repeat(df)
     assert not dom_df.empty
     assert "Day_Of_Month" in dom_df.columns

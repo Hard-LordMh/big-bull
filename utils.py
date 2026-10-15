@@ -217,6 +217,8 @@ def generate_synthetic_stock_data(
     """
     Generates a realistic synthetic daily stock dataset for testing and demonstration.
     Explicitly labeled as synthetic artificial data.
+    
+    WARNING: This is NOT real market data. Used only when real data is unavailable.
     """
     np.random.seed(seed)
     date_range = pd.date_range(end=pd.Timestamp.now(), periods=num_days, freq='B')
@@ -243,7 +245,10 @@ def generate_synthetic_stock_data(
         'Close': np.round(close_prices, 2),
         'Volume': volumes,
         'Ticker': ticker,
-        'Dataset_Type': 'SYNTHETIC_ARTIFICIAL_TEST_DATA'
+        'Dataset_Type': 'SYNTHETIC_ARTIFICIAL_TEST_DATA',
+        'data_source': 'SYNTHETIC_FALLBACK',
+        'is_fallback': True,
+        'is_stale': False  # Synthetic data is always "fresh" by definition
     })
     
     return df
@@ -256,12 +261,19 @@ def fetch_real_or_fallback_stock_data(
     """
     Fetches real daily market data from real sources (Google Finance & NSE feeds via yfinance).
     Falls back to synthetic data only if network is offline.
+    
+    WARNING: When fallback is used, data is synthetic and NOT real market data.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         from real_data_service import fetch_real_daily_data
         df = fetch_real_daily_data(ticker, period=period)
         if not df.empty and len(df) >= 30:
             return df
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to fetch real data for {ticker}: {e}. Using synthetic fallback.")
+    
+    logger.warning(f"Using SYNTHETIC FALLBACK data for {ticker} - This is NOT real market data!")
     return generate_synthetic_stock_data(ticker=ticker, num_days=350)

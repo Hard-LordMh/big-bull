@@ -194,8 +194,9 @@ def run_kronos_forecast(
             "status": "error",
             "message": (
                 f"Kronos model could not be loaded: {_load_error}. "
-                "Ensure internet access and that torch, einops, huggingface_hub "
-                "are installed."
+                "Troubleshooting: 1) Check internet connection (model downloads from HuggingFace). "
+                "2) Verify torch, einops, and huggingface_hub are installed. "
+                "3) Kronos is optional - the main Random Forest model works without it."
             ),
             "forecast_df": None,
             "direction": None,

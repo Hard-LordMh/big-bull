@@ -9,6 +9,9 @@ and price logic sanity before feature engineering and modeling.
 from typing import Tuple, List, Dict, Any
 import pandas as pd
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 REQUIRED_DAILY_COLUMNS = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
@@ -104,7 +107,13 @@ def validate_stock_dataframe(df: pd.DataFrame, min_rows: int = 50) -> Tuple[bool
     null_counts = df_clean[numeric_cols].isnull().sum()
     total_nulls = null_counts.sum()
     if total_nulls > 0:
-        warnings.append(f"Found missing numerical values. Imputing with forward/backward fill.")
+        warnings.append(f"Found {total_nulls} missing numerical values. Imputing with forward/backward fill.")
+        logger.info(f"Imputing {total_nulls} missing values in {numeric_cols} using forward/backward fill")
+        # Record imputation before applying
+        for col in numeric_cols:
+            null_count = null_counts[col]
+            if null_count > 0:
+                logger.warning(f"Column '{col}': {null_count} missing values imputed")
         df_clean[numeric_cols] = df_clean[numeric_cols].ffill().bfill()
 
     if df_clean[numeric_cols].isnull().sum().sum() > 0:
@@ -132,6 +141,7 @@ def validate_stock_dataframe(df: pd.DataFrame, min_rows: int = 50) -> Tuple[bool
 
     if invalid_ohlc > 0:
         warnings.append(f"Found {invalid_ohlc} row(s) where High/Low price logic was inconsistent. Automatically adjusted.")
+        logger.warning(f"OHLC logic repair: {invalid_ohlc} rows adjusted (High set to max of OHLC, Low set to min)")
         df_clean['High'] = df_clean[['Open', 'High', 'Low', 'Close']].max(axis=1)
         df_clean['Low'] = df_clean[['Open', 'High', 'Low', 'Close']].min(axis=1)
 
@@ -182,14 +192,28 @@ def validate_intraday_dataframe(df: pd.DataFrame, min_bars: int = 30) -> Tuple[b
     for col in numeric_cols:
         df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
 
+    # Log imputation for intraday data
+    null_counts_before = df_clean[numeric_cols].isnull().sum()
+    total_nulls_before = null_counts_before.sum()
+    if total_nulls_before > 0:
+        logger.info(f"Intraday: Imputing {total_nulls_before} missing values in {numeric_cols}")
+        for col in numeric_cols:
+            if null_counts_before[col] > 0:
+                logger.warning(f"Intraday column '{col}': {null_counts_before[col]} missing values imputed")
     df_clean[numeric_cols] = df_clean[numeric_cols].ffill().bfill()
 
     if (df_clean[['Open', 'High', 'Low', 'Close']] <= 0).any(axis=1).any():
         errors.append("Prices must be strictly positive.")
 
-    # High / Low sanity adjustment
+    # High / Low sanity adjustment with logging
+    high_before = df_clean['High'].copy()
+    low_before = df_clean['Low'].copy()
     df_clean['High'] = df_clean[['Open', 'High', 'Low', 'Close']].max(axis=1)
     df_clean['Low'] = df_clean[['Open', 'High', 'Low', 'Close']].min(axis=1)
+    high_changes = (df_clean['High'] != high_before).sum()
+    low_changes = (df_clean['Low'] != low_before).sum()
+    if high_changes > 0 or low_changes > 0:
+        logger.warning(f"Intraday OHLC repair: {high_changes} High values adjusted, {low_changes} Low values adjusted")
 
     if len(df_clean) < min_bars:
         errors.append(f"Insufficient intraday bars ({len(df_clean)} found, {min_bars} required).")

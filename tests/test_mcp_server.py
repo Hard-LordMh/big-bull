@@ -40,7 +40,7 @@ def test_mcp_detect_regime_and_anomalies():
 def test_mcp_timing_signal():
     res = json.loads(get_buy_sell_timing(ticker="RELIANCE.NS", horizon=5))
     assert "signal" in res
-    assert res["signal"] in ["Potential Buy", "Potential Sell", "Hold / No Signal"]
+    assert res["signal"] in ["Potential Buy (Research Signal)", "Potential Sell (Research Signal)", "Hold / No Signal"]
     assert "reference_price" in res
 
 

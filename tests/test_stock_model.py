@@ -75,7 +75,7 @@ def test_rf_detection_features():
     traj_df = predict_5day_trajectory(df_synth, feature_cols, model)
     assert not traj_df.empty
     assert len(traj_df) == 5
-    assert "Predicted_Close_INR" in traj_df.columns
+    assert "Reference_Close_INR" in traj_df.columns  # Changed from Predicted_Close_INR
     assert "RF_Probability_UP" in traj_df.columns
 
     assert "rf_detection" in latest_pred
@@ -138,14 +138,14 @@ def test_walk_forward_prediction_history_and_summary():
 
 def test_predict_next_week_directions():
     df_synth = generate_synthetic_stock_data(num_days=600, seed=11)
-
-    next_week = predict_next_week(df_synth, sessions=5)
+    train_df, latest_df, feature_cols = prepare_datasets(df_synth, horizon=1)
+    next_week = predict_next_week(df_synth, feature_cols, sessions=5)
 
     assert len(next_week) == 5
     assert next_week["Predicted_Direction"].isin(["UP", "DOWN"]).all()
     assert next_week["Prob_UP_Pct"].between(0.0, 100.0).all()
     assert (next_week["Trading_Date"] > df_synth["Date"].iloc[-1]).all()
-    assert next_week["Projected_Close_INR"].gt(0).all()
+    assert next_week["Reference_Close_INR"].gt(0).all()  # Changed from Projected_Close_INR
 
     assert next_week.attrs["week_direction"] in ["UP", "DOWN"]
     mean_prob = next_week["Prob_UP_Pct"].mean()
@@ -156,6 +156,7 @@ def test_predict_next_week_directions():
 
 def test_history_engine_handles_short_data():
     df_synth = generate_synthetic_stock_data(num_days=30, seed=3)
+    train_df, latest_df, feature_cols = prepare_datasets(df_synth, horizon=1)
     assert walk_forward_prediction_history(df_synth, years=5).empty
-    assert predict_next_week(df_synth, sessions=5).empty
+    assert predict_next_week(df_synth, feature_cols, sessions=5).empty
 

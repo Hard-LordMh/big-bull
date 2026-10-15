@@ -21,7 +21,7 @@ def test_evaluate_timing_signal():
         confidence_threshold=0.58,
         cost_bps=15.0
     )
-    assert res["signal"] == "Potential Buy"
+    assert res["signal"] == "Potential Buy (Research Signal)"
     assert res["stop_loss_inr"] < 2500.0
     assert res["target_inr"] > 2500.0
     assert res["risk_reward_ratio"] > 1.0

@@ -172,8 +172,19 @@ def train_and_predict_intraday(df: pd.DataFrame) -> Dict[str, Any]:
     y_pred = rf.predict(test_set[features])
     test_acc = float(accuracy_score(test_set['Target_Next_Bar_UP'], y_pred))
 
-    # Latest inference
+    # Latest inference - verify candle is complete (timestamp is in past, not current)
     latest_bar = clean_df.iloc[[-1]]
+    latest_timestamp = pd.to_datetime(latest_bar['Timestamp'].values[0])
+    current_time = pd.Timestamp.now()
+    
+    # Check if latest candle is complete (at least 15 minutes old for 15-min bars)
+    is_complete = (current_time - latest_timestamp).total_seconds() >= 900  # 15 minutes
+    
+    if not is_complete:
+        # If candle is not complete, use the previous complete candle
+        if len(clean_df) > 1:
+            latest_bar = clean_df.iloc[[-2]]
+    
     latest_prob = rf.predict_proba(latest_bar[features])[0]
     pred_dir = "UP" if rf.predict(latest_bar[features])[0] == 1 else "DOWN"
 

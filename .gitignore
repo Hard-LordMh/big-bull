@@ -27,3 +27,6 @@ Thumbs.db
 kronos_repo/
 # Local symlinked skills
 .agents/skills/developing-with-streamlit
+
+# Local benchmark harness
+_bench_full.py

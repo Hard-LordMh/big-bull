@@ -17,14 +17,19 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.metrics import (
     accuracy_score, balanced_accuracy_score, precision_score,
-    recall_score, f1_score, roc_auc_score, confusion_matrix
+    recall_score, f1_score, roc_auc_score, confusion_matrix,
+    brier_score_loss, log_loss
 )
 import joblib
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray = None) -> Dict[str, Any]:
     """
     Computes all standard classification evaluation metrics.
+    Includes Brier score and log loss for probability calibration assessment.
     """
     acc = accuracy_score(y_true, y_pred)
     bal_acc = balanced_accuracy_score(y_true, y_pred)
@@ -33,11 +38,19 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray
     f1 = f1_score(y_true, y_pred, zero_division=0)
     
     auc = None
+    brier = None
+    logloss = None
+    
     if y_prob is not None and len(np.unique(y_true)) > 1:
         try:
             auc = float(roc_auc_score(y_true, y_prob))
-        except Exception:
+            brier = float(brier_score_loss(y_true, y_prob))
+            logloss = float(log_loss(y_true, y_prob))
+        except Exception as e:
+            logger.warning(f"Could not compute probability metrics: {e}")
             auc = None
+            brier = None
+            logloss = None
 
     cm = confusion_matrix(y_true, y_pred)
     if cm.shape == (2, 2):
@@ -56,6 +69,8 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray
         "recall": float(rec),
         "f1_score": float(f1),
         "roc_auc": auc if auc is not None else "N/A",
+        "brier_score": brier if brier is not None else "N/A",
+        "log_loss": logloss if logloss is not None else "N/A",
         "baseline_accuracy": float(baseline_acc),
         "outperforms_baseline": bool(acc > baseline_acc),
         "confusion_matrix": {
@@ -198,7 +213,18 @@ def train_and_evaluate_model(
     rf_model.fit(X_train, y_train)
 
     y_test_pred = rf_model.predict(X_test)
-    y_test_prob = rf_model.predict_proba(X_test)[:, 1] if len(rf_model.classes_) > 1 else np.zeros(len(X_test))
+    # Verify class ordering before extracting probability
+    if len(rf_model.classes_) > 1:
+        # Expected: classes_[0] = DOWN (0), classes_[1] = UP (1)
+        # Log warning if ordering is unexpected
+        if rf_model.classes_[0] != 0 or rf_model.classes_[1] != 1:
+            logger.warning(f"Unexpected class ordering: {rf_model.classes_}. Expected [0, 1]")
+        # Extract probability for class 1 (UP)
+        up_class_idx = list(rf_model.classes_).index(1) if 1 in rf_model.classes_ else 1
+        y_test_prob = rf_model.predict_proba(X_test)[:, up_class_idx]
+    else:
+        y_test_prob = np.zeros(len(X_test))
+        logger.warning("Model has only one class - using zero probabilities")
 
     test_metrics = calculate_metrics(y_test.values, y_test_pred, y_test_prob)
     if hasattr(rf_model, "oob_score_"):
@@ -208,6 +234,7 @@ def train_and_evaluate_model(
     backtest_predictions['Predicted_Target'] = y_test_pred
     backtest_predictions['Prob_UP'] = y_test_prob
     backtest_predictions['Prob_DOWN'] = 1.0 - y_test_prob
+    backtest_predictions['Class_Ordering'] = str(rf_model.classes_)
     backtest_predictions['Actual_Direction'] = np.where(backtest_predictions[target_col] == 1, 'UP', 'DOWN')
     backtest_predictions['Predicted_Direction'] = np.where(backtest_predictions['Predicted_Target'] == 1, 'UP', 'DOWN')
     backtest_predictions['Is_Correct'] = (backtest_predictions['Actual_Direction'] == backtest_predictions['Predicted_Direction'])
@@ -275,13 +302,13 @@ def detect_tree_consensus(model: RandomForestClassifier, X_latest: pd.DataFrame)
 
     if consensus_pct >= 75.0:
         strength = "HIGH_CONVICTION"
-        strength_label = f"Strong Forest Consensus ({consensus_pct}%)"
+        strength_label = f"Strong Model Agreement ({consensus_pct}% of trees agree)"
     elif consensus_pct >= 60.0:
         strength = "MODERATE_CONVICTION"
-        strength_label = f"Moderate Forest Consensus ({consensus_pct}%)"
+        strength_label = f"Moderate Model Agreement ({consensus_pct}% of trees agree)"
     else:
         strength = "DIVIDED_FOREST"
-        strength_label = f"Divided Forest / Choppy Setup ({consensus_pct}%)"
+        strength_label = f"Divided Model Opinion / Choppy Setup ({consensus_pct}% agreement)"
 
     tree_variance = float(np.var(votes))
 
@@ -355,12 +382,12 @@ def detect_breakout_anomalies(df: pd.DataFrame, contamination: float = 0.05) -> 
 
     if latest_is_anomaly:
         if latest_surge >= 1.75:
-            anomaly_type = "INSTITUTIONAL_VOLUME_EXPANSION"
-            badge = "⚡ Institutional Volume Breakout"
-            desc = f"Unusual institutional volume surge ({latest_surge:.1f}x 20-day average) detected by tree isolation."
+            anomaly_type = "UNUSUAL_VOLUME_EXPANSION"
+            badge = "⚡ Unusual Volume Surge"
+            desc = f"Unusual volume surge ({latest_surge:.1f}x 20-day average) detected by isolation forest. Note: This does not confirm institutional activity."
         else:
             anomaly_type = "VOLATILITY_EXPANSION_BREAKOUT"
-            badge = "⚠️ Volatility Expansion Breakout"
+            badge = "⚠️ Volatility Expansion"
             desc = f"Intraday price spread ({latest_spread*100:.1f}%) significantly deviates from normal range."
     else:
         anomaly_type = "NORMAL_SESSION"
@@ -487,21 +514,188 @@ def explain_tree_prediction(
     return top_features
 
 
+# =============================================================================
+# Multi-Factor Intelligence (Live Rate · Smart Money · News · Technicals)
+# =============================================================================
+
+def analyze_live_market_rate(live_quote: Dict[str, Any], prev_close: Optional[float] = None) -> Dict[str, Any]:
+    """
+    Extracts real-time intraday pressure from today's live market rate:
+    - Current price vs day's open and previous close.
+    - Position in today's high-low band: 0% = low of day, 100% = high of day.
+    - Intraday directional score (-1.0 to +1.0).
+    """
+    if not live_quote or not live_quote.get("price"):
+        return {
+            "valid": False,
+            "intraday_score": 0.0,
+            "range_position_pct": 50.0,
+            "status": "No Live Quote Available",
+            "badge": "⚪ Awaiting Market Open",
+            "day_change_pct": 0.0
+        }
+        
+    price = float(live_quote.get("price", 0.0))
+    p_close = float(live_quote.get("prev_close") or (prev_close or price))
+    d_high = float(live_quote.get("day_high") or price)
+    d_low = float(live_quote.get("day_low") or price)
+    day_change_pct = float(live_quote.get("day_change_pct") or 0.0)
+    
+    spread = max(d_high - d_low, 1e-6)
+    range_pos = max(0.0, min(100.0, ((price - d_low) / spread) * 100.0))
+    
+    pos_score = (range_pos - 50.0) / 50.0
+    change_score = max(-1.0, min(1.0, day_change_pct / 3.0))
+    
+    intraday_score = round(0.6 * pos_score + 0.4 * change_score, 3)
+    
+    if range_pos >= 80.0 and day_change_pct > 0:
+        status = "Day High Breakout Pressure"
+        badge = "🟢 Strong Live Buying at Highs"
+    elif range_pos <= 20.0 and day_change_pct < 0:
+        status = "Day Low Breakdown Drift"
+        badge = "🔴 Heavy Selling Pressure at Lows"
+    elif day_change_pct >= 1.0:
+        status = "Positive Intraday Momentum"
+        badge = "🟢 Green Session Push"
+    elif day_change_pct <= -1.0:
+        status = "Negative Intraday Drag"
+        badge = "🔴 Red Session Drag"
+    else:
+        status = "Consolidating Mid-Range"
+        badge = "🟣 Choppy Mid-Range Equilibrium"
+        
+    return {
+        "valid": True,
+        "live_price": price,
+        "prev_close": p_close,
+        "day_high": d_high,
+        "day_low": d_low,
+        "day_change_pct": round(day_change_pct, 2),
+        "range_position_pct": round(range_pos, 1),
+        "intraday_score": intraday_score,
+        "status": status,
+        "badge": badge
+    }
+
+
+def compute_multi_factor_prediction(
+    rf_prob_up: float,
+    live_rate_info: Optional[Dict[str, Any]] = None,
+    order_flow_info: Optional[Dict[str, Any]] = None,
+    news_sentiment_info: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Fuses 4 core intelligence spaces into one unified future prediction:
+    1. Historical ML Random Forest Technicals (Base directional edge)
+    2. Today's Real-Time Market Rate & Intraday Pressure (Live quote, high/low range)
+    3. Smart Money / Institutional Order Flow (Chaikin Money Flow & Up-tick vs Down-tick volume)
+    4. Financial News & Catalyst Sentiment (Google News NLP polarity)
+    """
+    rf_prob = float(rf_prob_up)
+    tech_score = (rf_prob - 0.5) * 2.0
+    
+    has_live = bool(live_rate_info and live_rate_info.get("valid", False))
+    live_score = float(live_rate_info.get("intraday_score", 0.0)) if has_live else 0.0
+    
+    has_flow = bool(order_flow_info and "flow_score" in order_flow_info)
+    flow_score = float(order_flow_info.get("flow_score", 0.0)) if has_flow else 0.0
+    
+    has_news = bool(news_sentiment_info and news_sentiment_info.get("total_headlines", 0) > 0)
+    news_score = float(news_sentiment_info.get("score", 0.0)) if has_news else 0.0
+    
+    weights = {"technicals": 0.40}
+    if has_live:
+        weights["live_rate"] = 0.25
+    if has_flow:
+        weights["order_flow"] = 0.20
+    if has_news:
+        weights["news"] = 0.15
+        
+    total_w = sum(weights.values())
+    norm_w = {k: v / total_w for k, v in weights.items()}
+    
+    composite_score = (
+        norm_w["technicals"] * tech_score +
+        norm_w.get("live_rate", 0.0) * live_score +
+        norm_w.get("order_flow", 0.0) * flow_score +
+        norm_w.get("news", 0.0) * news_score
+    )
+    
+    composite_prob_up = round(float((composite_score + 1.0) / 2.0 * 100.0), 1)
+    composite_prob_down = round(100.0 - composite_prob_up, 1)
+    
+    if composite_prob_up >= 65.0:
+        call = "STRONG BUY"
+        conviction = "High Conviction Long"
+        badge = "🟢 Strong Buy (Multi-Pillar Confirmation)"
+        color = "#10b981"
+    elif composite_prob_up >= 55.0:
+        call = "BUY"
+        conviction = "Moderate Buy"
+        badge = "🟢 Potential Buy (Favorable Setup)"
+        color = "#34d399"
+    elif composite_prob_up <= 35.0:
+        call = "STRONG SELL"
+        conviction = "High Conviction Short / Defense"
+        badge = "🔴 Strong Sell (Multi-Pillar Downside)"
+        color = "#ef4444"
+    elif composite_prob_up <= 45.0:
+        call = "SELL"
+        conviction = "Moderate Sell"
+        badge = "🔴 Caution / Downside Drift"
+        color = "#f87171"
+    else:
+        call = "NEUTRAL / HOLD"
+        conviction = "Divided Signals"
+        badge = "🟣 Neutral / Wait for Clarity"
+        color = "#818cf8"
+        
+    pillars_aligned = sum([
+        1 if tech_score > 0.05 else (-1 if tech_score < -0.05 else 0),
+        1 if live_score > 0.1 else (-1 if live_score < -0.1 else 0),
+        1 if flow_score > 0.1 else (-1 if flow_score < -0.1 else 0),
+        1 if news_score > 0.1 else (-1 if news_score < -0.1 else 0),
+    ])
+    
+    return {
+        "call": call,
+        "conviction": conviction,
+        "badge": badge,
+        "color": color,
+        "composite_prob_up": composite_prob_up,
+        "composite_prob_down": composite_prob_down,
+        "composite_score": round(composite_score, 3),
+        "pillars_aligned": pillars_aligned,
+        "weights_used": {k: round(v, 2) for k, v in norm_w.items()},
+        "pillar_scores": {
+            "technicals": round(tech_score, 2),
+            "live_rate": round(live_score, 2) if has_live else None,
+            "order_flow": round(flow_score, 2) if has_flow else None,
+            "news_sentiment": round(news_score, 2) if has_news else None
+        }
+    }
+
+
 def predict_latest_session(
     model: RandomForestClassifier,
     latest_df: pd.DataFrame,
     feature_cols: List[str],
     ticker: str = "NSE_STOCK",
     horizon: int = 5,
-    full_df: pd.DataFrame = None
+    full_df: pd.DataFrame = None,
+    live_quote: Dict[str, Any] = None,
+    news_sentiment: Dict[str, Any] = None,
+    order_flow: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """
     Generates prediction for the latest valid observation in the dataset.
-    Includes full Random Forest detection diagnostics:
+    Includes full Random Forest detection diagnostics and multi-factor fusion:
     - Tree consensus breakdown (UP vs DOWN votes across 100 trees)
     - Unsupervised Isolation Forest anomaly / breakout detection
     - Systematic market regime classification
     - Top driving feature contributions
+    - Multi-Factor Intelligence (Live Rate · Smart Money · News · Technicals)
     """
     if latest_df.empty:
         raise ValueError("No valid observation available for latest prediction.")
@@ -514,9 +708,20 @@ def predict_latest_session(
     pred_class = int(model.predict(X_latest)[0])
     probs = model.predict_proba(X_latest)[0]
 
+    # Verify class ordering for probability extraction
     if len(probs) == 2:
-        prob_down = float(probs[0])
-        prob_up = float(probs[1])
+        if len(model.classes_) == 2:
+            if model.classes_[0] == 0 and model.classes_[1] == 1:
+                prob_down = float(probs[0])
+                prob_up = float(probs[1])
+            else:
+                logger.warning(f"Unexpected class ordering in predict_latest_session: {model.classes_}")
+                up_idx = list(model.classes_).index(1) if 1 in model.classes_ else 1
+                prob_up = float(probs[up_idx])
+                prob_down = 1.0 - prob_up
+        else:
+            prob_down = float(probs[0])
+            prob_up = float(probs[1])
     else:
         prob_up = 1.0 if pred_class == 1 else 0.0
         prob_down = 1.0 - prob_up
@@ -541,6 +746,26 @@ def predict_latest_session(
     }).sort_values('Importance', ascending=False).reset_index(drop=True)
     driving_factors = explain_tree_prediction(latest_row, feat_imp_df, top_n=4)
 
+    # 5. Order Flow & Institutional Tracking
+    if order_flow is None and eval_df is not None and len(eval_df) >= 10:
+        try:
+            from real_data_service import analyze_order_flow_and_delivery
+            order_flow = analyze_order_flow_and_delivery(eval_df, live_quote)
+        except Exception as e:
+            logger.debug(f"Order flow analysis skipped: {e}")
+            order_flow = None
+
+    # 6. Live Market Rate & Day Range Pressure
+    live_rate_info = analyze_live_market_rate(live_quote, latest_close) if live_quote else None
+
+    # 7. Multi-Factor Fusion Prediction
+    multi_factor = compute_multi_factor_prediction(
+        rf_prob_up=prob_up,
+        live_rate_info=live_rate_info,
+        order_flow_info=order_flow,
+        news_sentiment_info=news_sentiment
+    )
+
     return {
         "ticker": ticker,
         "signal_date": signal_date,
@@ -555,6 +780,9 @@ def predict_latest_session(
             "breakout_anomaly": anomaly_info,
             "driving_factors": driving_factors
         },
+        "multi_factor_analysis": multi_factor,
+        "order_flow": order_flow,
+        "live_rate_analysis": live_rate_info,
         "disclaimer": "Probabilities represent statistical model outputs based on historical patterns and are not guaranteed predictions."
     }
 
@@ -744,18 +972,88 @@ def summarize_prediction_history(history: pd.DataFrame) -> Dict[str, Any]:
     }
 
 
+def determine_trading_horizon_tag(history: pd.DataFrame, summary: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Determines the best trading horizon (intraday/short-term/long-term) based on
+    5-year Random Forest prediction performance metrics.
+    
+    Uses hit rate, edge over baseline, and average returns to classify:
+    - Intraday: High hit rate (>55%) with consistent small returns
+    - Short-term: Moderate hit rate (52-55%) with positive edge
+    - Long-term: Lower hit rate but strong directional bias for multi-day holds
+    
+    Returns tag, confidence, and rationale.
+    """
+    if history is None or history.empty or not summary.get("valid", False):
+        return {
+            "tag": "Insufficient Data",
+            "confidence": "Low",
+            "rationale": "Not enough historical prediction data to classify trading horizon.",
+            "color": "#64748B"
+        }
+    
+    hit_rate = summary.get("hit_rate_pct", 50.0)
+    edge = summary.get("edge_pct", 0.0)
+    avg_return = summary.get("avg_return_pct", 0.0)
+    baseline = summary.get("baseline_pct", 50.0)
+    
+    # Calculate volatility of returns
+    returns = history["Actual_Return_Pct"].values
+    return_std = float(np.std(returns)) if len(returns) > 0 else 0.0
+    
+    # Determine trading horizon based on metrics
+    if hit_rate >= 55.0 and edge >= 2.0 and return_std < 2.0:
+        tag = "Best for Intraday"
+        confidence = "High"
+        rationale = f"High hit rate ({hit_rate:.1f}%) with low volatility ({return_std:.2f}%) suggests reliable short-term signals."
+        color = "#10B981"
+    elif hit_rate >= 52.0 and edge >= 1.0 and avg_return > 0:
+        tag = "Best for Short-term"
+        confidence = "Medium"
+        rationale = f"Moderate hit rate ({hit_rate:.1f}%) with positive edge ({edge:.1f}%) suitable for 1-5 day positions."
+        color = "#3B82F6"
+    elif hit_rate >= 50.0 and avg_return > 0.1:
+        tag = "Best for Long-term"
+        confidence = "Medium"
+        rationale = f"Positive average return ({avg_return:.2f}%) despite moderate hit rate suggests directional bias for multi-week holds."
+        color = "#8B5CF6"
+    elif hit_rate < 50.0 and edge < 0:
+        tag = "Not Recommended"
+        confidence = "High"
+        rationale = f"Model underperforms baseline ({baseline:.1f}%) with negative edge ({edge:.1f}%). Avoid trading on signals."
+        color = "#EF4444"
+    else:
+        tag = "Mixed Performance"
+        confidence = "Low"
+        rationale = f"Hit rate ({hit_rate:.1f}%) near baseline ({baseline:.1f}%) with no clear edge. Use with caution."
+        color = "#F59E0B"
+    
+    return {
+        "tag": tag,
+        "confidence": confidence,
+        "rationale": rationale,
+        "color": color,
+        "hit_rate_pct": hit_rate,
+        "edge_pct": edge,
+        "avg_return_pct": avg_return,
+        "return_volatility_pct": return_std
+    }
+
+
 def predict_next_week(
     clean_df: pd.DataFrame,
-    feature_cols: List[str] = None,
+    feature_cols: List[str],
     sessions: int = 5
 ) -> pd.DataFrame:
     """
-    Produces an explicit UP/DOWN call for each of the next `sessions` trading days.
-
-    The 1-session classifier is trained on all available history. Each future session is
-    then projected bar-by-bar (ATR-bounded synthetic OHLCV), features are rebuilt on the
-    extended frame, and the model votes on that session. This keeps the call anchored to
-    real model probabilities instead of a flat extrapolation.
+    Produces UP/DOWN direction probabilities for the next `sessions` trading days.
+    
+    IMPORTANT: This provides direction probabilities only, NOT price forecasts.
+    The model does not have validated price forecasting capability.
+    Probabilities are based on historical patterns and technical features only.
+    
+    Previous version used synthetic OHLCV projection which has been removed
+    to avoid misleading users about forecasting capability.
     """
     if clean_df is None or clean_df.empty or len(clean_df) < 60:
         return pd.DataFrame()
@@ -783,48 +1081,28 @@ def predict_next_week(
     )
     model.fit(train_block[feats], y_tr)
 
-    atr = float(df['ATR_14'].iloc[-1]) if 'ATR_14' in df.columns else float(df['Close'].iloc[-1] * 0.015)
-    if not np.isfinite(atr) or atr <= 0:
-        atr = float(df['Close'].iloc[-1] * 0.015)
-    vol_ma = float(df['Volume'].tail(20).mean()) if 'Volume' in df.columns else 0.0
-
     last_date = pd.to_datetime(df['Date'].iloc[-1])
     last_close = float(df['Close'].iloc[-1])
 
+    # Generate future trading dates (business days, excluding weekends)
     future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=sessions + 5, freq='B')
     future_dates = [d for d in future_dates if d > last_date][:sessions]
 
-    working = df[['Date', 'Open', 'High', 'Low', 'Close', 'Volume']].copy()
-    working['Date'] = pd.to_datetime(working['Date'])
-
-    prev_close = last_close
-    prev_prob_up = float(model.predict_proba(df[feats].iloc[[-1]])[0][1]) if len(model.classes_) > 1 else 0.5
+    # Get current model probability as baseline
+    if len(model.classes_) > 1:
+        up_idx = list(model.classes_).index(1) if 1 in model.classes_ else 1
+        prev_prob_up = float(model.predict_proba(df[feats].iloc[[-1]])[0][up_idx])
+    else:
+        prev_prob_up = 0.5
+    
     rows = []
 
     for i, fdate in enumerate(future_dates):
-        prob_up = prev_prob_up if i == 0 else rows[-1]["Prob_UP_Pct"] / 100.0
-        expected_move = (prob_up - 0.5) * 2.0 * atr
-        proj_close = max(prev_close + expected_move, 1.0)
-
-        synth_open = prev_close
-        synth_high = max(synth_open, proj_close) + atr * 0.35
-        synth_low = min(synth_open, proj_close) - atr * 0.35
-        synth_vol = vol_ma * (1.0 + abs(prob_up - 0.5) * 1.5)
-
-        working = pd.concat([working, pd.DataFrame([{
-            'Date': fdate, 'Open': synth_open, 'High': synth_high,
-            'Low': synth_low, 'Close': proj_close, 'Volume': synth_vol
-        }])], ignore_index=True)
-
-        ext_feat = build_features(working)
-        ext_feat[feats] = ext_feat[feats].replace([np.inf, -np.inf], np.nan).ffill().bfill().replace([np.inf, -np.inf], 0.0).fillna(0.0)
-
-        x_row = ext_feat[feats].iloc[[-1]]
-        if len(model.classes_) > 1:
-            prob_up = float(model.predict_proba(x_row)[0][1])
-        else:
-            prob_up = 0.5
-
+        # Use current probability as estimate for future session
+        # Note: This is a simplified approach - we cannot accurately predict
+        # future feature states without synthetic data, which we avoid
+        prob_up = prev_prob_up
+        
         direction = "UP" if prob_up >= 0.5 else "DOWN"
         rows.append({
             "Trading_Day": f"Day +{i + 1}",
@@ -833,10 +1111,9 @@ def predict_next_week(
             "Predicted_Direction": direction,
             "Prob_UP_Pct": round(prob_up * 100.0, 1),
             "Prob_DOWN_Pct": round((1.0 - prob_up) * 100.0, 1),
-            "Projected_Close_INR": round(proj_close, 2),
-            "Change_vs_Prev_Pct": round(((proj_close / prev_close) - 1.0) * 100.0, 2) if prev_close else 0.0
+            "Reference_Close_INR": round(last_close, 2),  # Reference price, not projection
+            "Note": "Direction probability only - no price forecast available"
         })
-        prev_close = proj_close
 
     if not rows:
         return pd.DataFrame()
@@ -847,6 +1124,7 @@ def predict_next_week(
     out.attrs["week_prob_up"] = round(float(weekly_up), 1)
     out.attrs["reference_close"] = round(last_close, 2)
     out.attrs["reference_date"] = last_date.strftime("%Y-%m-%d")
+    out.attrs["disclaimer"] = "Direction probabilities only - no validated price forecasting model exists"
     return out
 
 
@@ -856,10 +1134,14 @@ def predict_5day_trajectory(
     model: RandomForestClassifier = None
 ) -> pd.DataFrame:
     """
-    Generates a session-by-session 5-day future projected path (Day +1 to Day +5)
-    using Random Forest techniques, calibrated tree probabilities, and technical momentum.
-    Returns a pandas DataFrame with Day +1 to Day +5 projected dates, predicted close,
-    day-over-day return %, direction (UP/DOWN), probability, and estimated ATR range.
+    Provides direction probabilities for the next 5 trading days.
+    
+    IMPORTANT: This provides direction probabilities only, NOT price forecasts.
+    The model does not have validated price forecasting capability.
+    Previous version used synthetic price projections which have been removed.
+    
+    Returns a pandas DataFrame with Day +1 to Day +5 trading dates,
+    direction (UP/DOWN), and probability estimates.
     """
     if clean_df is None or clean_df.empty or len(clean_df) < 20:
         return pd.DataFrame()
@@ -876,9 +1158,6 @@ def predict_5day_trajectory(
     last_dt = pd.to_datetime(latest_row['Date'])
     last_close = float(latest_row['Close'])
 
-    atr = float(df_calc['ATR_14'].iloc[-1]) if 'ATR_14' in df_calc.columns else (last_close * 0.018)
-    rsi = float(df_calc['RSI_14'].iloc[-1]) if 'RSI_14' in df_calc.columns else 50.0
-
     # Train or fit 1-day model if not provided
     if model is None:
         if 'Target_1D_UP' not in df_calc.columns:
@@ -890,41 +1169,43 @@ def predict_5day_trajectory(
         model.fit(X_tr, y_tr)
 
     X_latest = df_calc.iloc[[-1]][feature_cols].replace([np.inf, -np.inf], 0.0).fillna(0.0)
-    prob_1d_up = float(model.predict_proba(X_latest)[0][1]) if len(model.classes_) > 1 else 0.5
+    
+    # Verify class ordering
+    if len(model.classes_) > 1:
+        up_idx = list(model.classes_).index(1) if 1 in model.classes_ else 1
+        prob_1d_up = float(model.predict_proba(X_latest)[0][up_idx])
+    else:
+        prob_1d_up = 0.5
 
     # Generate 5 future trading business days
     future_dates = pd.date_range(start=last_dt + pd.Timedelta(days=1), periods=10, freq='B')
     future_dates = [d for d in future_dates if d > last_dt][:5]
 
     trajectory = []
-    current_proj_close = last_close
+    # Decay factor to account for increasing uncertainty over time
     decay_factor = [1.0, 0.92, 0.85, 0.78, 0.72]
 
     for i in range(len(future_dates)):
         fut_dt = future_dates[i]
         dt_str = fut_dt.strftime('%Y-%m-%d (%a)')
 
-        adj_prob = prob_1d_up * decay_factor[i] + (0.5 if rsi == 50 else (rsi / 100.0) * 0.1) * (1 - decay_factor[i])
+        # Apply decay to probability (increasing uncertainty over time)
+        adj_prob = prob_1d_up * decay_factor[i] + 0.5 * (1 - decay_factor[i])
         adj_prob = min(max(adj_prob, 0.15), 0.88)
 
-        daily_expected_return_pct = (adj_prob - 0.5) * 2.0 * (atr / last_close * 100.0)
-        day_dir = "UP" if daily_expected_return_pct >= 0 else "DOWN"
-
-        current_proj_close = current_proj_close * (1.0 + (daily_expected_return_pct / 100.0))
-        upper_bound = current_proj_close + (atr * (1.0 + i * 0.2))
-        lower_bound = max(current_proj_close - (atr * (1.0 + i * 0.2)), 1.0)
+        day_dir = "UP" if adj_prob >= 0.5 else "DOWN"
 
         trajectory.append({
             "Day": f"Day +{i+1}",
             "Trading_Date": dt_str,
-            "Predicted_Close_INR": round(current_proj_close, 2),
-            "Expected_Return_Pct": round(daily_expected_return_pct, 2),
-            "Cumulative_Return_Pct": round(((current_proj_close / last_close) - 1.0) * 100.0, 2),
+            "Reference_Close_INR": round(last_close, 2),  # Reference price, not projection
             "Direction": day_dir,
             "RF_Probability_UP": round(adj_prob * 100.0, 1),
-            "Lower_Bound_INR": round(lower_bound, 2),
-            "Upper_Bound_INR": round(upper_bound, 2)
+            "RF_Probability_DOWN": round((1.0 - adj_prob) * 100.0, 1),
+            "Note": "Direction probability only - no price forecast available"
         })
 
-    return pd.DataFrame(trajectory)
+    out = pd.DataFrame(trajectory)
+    out.attrs["disclaimer"] = "Direction probabilities only - no validated price forecasting model exists"
+    return out
 

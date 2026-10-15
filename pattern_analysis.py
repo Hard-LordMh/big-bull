@@ -257,7 +257,7 @@ def analyze_day_of_month_repeat(df: pd.DataFrame) -> pd.DataFrame:
     valid = df.dropna(subset=['Return_1D'])
     summary = []
     for dom, grp in valid.groupby('Day_Of_Month'):
-        if len(grp) < 3:
+        if len(grp) < 10:  # Increased from 3 to 10 for better statistical significance
             continue
         avg_ret = float(grp['Return_1D'].mean())
         win_rate = float((grp['Return_1D'] > 0).mean() * 100.0)
@@ -269,7 +269,8 @@ def analyze_day_of_month_repeat(df: pd.DataFrame) -> pd.DataFrame:
             "Mean_Return_Pct": round(avg_ret, 3),
             "Win_Rate_Pct": round(win_rate, 1),
             "Volatility_Pct": round(vol, 3),
-            "Historical_Tendency": "🟢 Bullish Repeat" if avg_ret > 0.1 else ("🔴 Bearish Dip" if avg_ret < -0.1 else "⚪ Neutral")
+            "Historical_Tendency": "🟢 Historically Positive" if avg_ret > 0.1 else ("🔴 Historically Negative" if avg_ret < -0.1 else "⚪ Historically Neutral"),
+            "Note": "Historical pattern - correlation does not imply causation"
         })
 
     return pd.DataFrame(summary).sort_values('Day_Of_Month').reset_index(drop=True)
